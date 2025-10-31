@@ -16,9 +16,8 @@ from tests.test_inputs.h_dict import h_dict_wind
 
 # Create a base test dictionary for Wind_MesoToPowerPrecomFloris
 h_dict_wind_precom_floris = copy.deepcopy(h_dict_wind)
-# Update component type and add logging_option for precom_floris tests
+# Update component type
 h_dict_wind_precom_floris["wind_farm"]["component_type"] = "Wind_MesoToPowerPrecomFloris"
-h_dict_wind_precom_floris["wind_farm"]["logging_option"] = "all"
 
 
 def test_wind_meso_to_power_precom_floris_initialization():
@@ -38,14 +37,15 @@ def test_wind_meso_to_power_precom_floris_initialization():
         == h_dict_wind_precom_floris["wind_farm"]["floris_update_time_s"]
     )
 
+
 def test_wind_meso_to_power_precom_floris_ws_mean():
     """Test that invalid component_type raises ValueError."""
 
     current_dir = os.path.dirname(__file__)
 
-    df_input = pd.read_csv(current_dir+"/test_inputs/wind_input.csv")
+    df_input = pd.read_csv(current_dir + "/test_inputs/wind_input.csv")
     df_input["ws_mean"] = 10.0
-    df_input.to_csv(current_dir+"/test_inputs/wind_input_temp.csv")
+    df_input.to_csv(current_dir + "/test_inputs/wind_input_temp.csv")
 
     test_h_dict = copy.deepcopy(h_dict_wind_precom_floris)
     test_h_dict["wind_farm"]["wind_input_filename"] = "tests/test_inputs/wind_input_temp.csv"
@@ -54,26 +54,26 @@ def test_wind_meso_to_power_precom_floris_ws_mean():
     # Note that h_dict_wind_precom_floris specifies an end time of 10.
     wind_sim = Wind_MesoToPowerPrecomFloris(test_h_dict)
     assert (
-        wind_sim.ws_mat[:, 0]
-        == df_input["ws_000"].to_numpy(dtype=hercules_float_type)[:10]
+        wind_sim.ws_mat[:, 0] == df_input["ws_000"].to_numpy(dtype=hercules_float_type)[:10]
     ).all()
     assert np.allclose(
         wind_sim.ws_mat_mean,
-        (df_input[["ws_000", "ws_001", "ws_002"]].mean(axis=1)).to_numpy(
-            dtype=hercules_float_type
-        )[:10]
+        (df_input[["ws_000", "ws_001", "ws_002"]].mean(axis=1)).to_numpy(dtype=hercules_float_type)[
+            :10
+        ],
     )
 
     # Drop individual speeds and test that ws_mean is used instead
     df_input = df_input.drop(columns=["ws_000", "ws_001", "ws_002"])
-    df_input.to_csv(current_dir+"/test_inputs/wind_input_temp.csv")
+    df_input.to_csv(current_dir + "/test_inputs/wind_input_temp.csv")
 
     wind_sim = Wind_MesoToPowerPrecomFloris(test_h_dict)
     assert (wind_sim.ws_mat_mean == 10.0).all()
     assert (wind_sim.ws_mat[:, :] == 10.0).all()
 
     # Delete temp file
-    os.remove(current_dir+"/test_inputs/wind_input_temp.csv")
+    os.remove(current_dir + "/test_inputs/wind_input_temp.csv")
+
 
 def test_wind_meso_to_power_precom_floris_requires_floris_update_time():
     """Test that missing floris_update_time_s raises ValueError."""
@@ -152,16 +152,16 @@ def test_wind_meso_to_power_precom_floris_get_initial_conditions_and_meta_data()
     assert "n_turbines" in result["wind_farm"]
     assert "capacity" in result["wind_farm"]
     assert "rated_turbine_power" in result["wind_farm"]
-    assert "wind_direction" in result["wind_farm"]
-    assert "wind_speed" in result["wind_farm"]
+    assert "wind_direction_mean" in result["wind_farm"]
+    assert "wind_speed_mean_background" in result["wind_farm"]
     assert "turbine_powers" in result["wind_farm"]
 
     # Verify the values match the wind_sim attributes
     assert result["wind_farm"]["n_turbines"] == wind_sim.n_turbines
     assert result["wind_farm"]["capacity"] == wind_sim.capacity
     assert result["wind_farm"]["rated_turbine_power"] == wind_sim.rated_turbine_power
-    assert result["wind_farm"]["wind_direction"] == wind_sim.wd_mat_mean[0]
-    assert result["wind_farm"]["wind_speed"] == wind_sim.ws_mat_mean[0]
+    assert result["wind_farm"]["wind_direction_mean"] == wind_sim.wd_mat_mean[0]
+    assert result["wind_farm"]["wind_speed_mean_background"] == wind_sim.ws_mat_mean[0]
 
     # Verify turbine_powers is a numpy array with correct length
     assert isinstance(result["wind_farm"]["turbine_powers"], np.ndarray)
@@ -179,13 +179,13 @@ def test_wind_meso_to_power_precom_floris_precomputed_wake_deficits():
     """Test that wake deficits are precomputed and stored correctly."""
     wind_sim = Wind_MesoToPowerPrecomFloris(h_dict_wind_precom_floris)
 
-    # Verify that precomputed wake velocities exist
-    assert hasattr(wind_sim, "waked_velocities_all")
-    assert isinstance(wind_sim.waked_velocities_all, np.ndarray)
+    # Verify that precomputed wake wind speeds exist
+    assert hasattr(wind_sim, "wind_speeds_withwakes_all")
+    assert isinstance(wind_sim.wind_speeds_withwakes_all, np.ndarray)
 
     # Check shape: should be (n_time_steps, n_turbines)
     expected_shape = (wind_sim.n_steps, wind_sim.n_turbines)
-    assert wind_sim.waked_velocities_all.shape == expected_shape
+    assert wind_sim.wind_speeds_withwakes_all.shape == expected_shape
 
     # Verify that initial wake deficits are calculated
     assert hasattr(wind_sim, "floris_wake_deficits")
@@ -197,7 +197,7 @@ def test_wind_meso_to_power_precom_floris_precomputed_wake_deficits():
 
 
 def test_wind_meso_to_power_precom_floris_velocities_update_correctly():
-    """Test that velocities are updated correctly from precomputed arrays during simulation."""
+    """Test that wind speeds are updated correctly from precomputed arrays during simulation."""
     # Create a temporary wind input file with varying conditions
     wind_data = {
         "time": [0, 1, 2, 3],
@@ -224,9 +224,9 @@ def test_wind_meso_to_power_precom_floris_velocities_update_correctly():
         # Initialize wind simulation
         wind_sim = Wind_MesoToPowerPrecomFloris(test_h_dict)
 
-        # Store initial velocities
-        initial_unwaked = wind_sim.unwaked_velocities.copy()
-        initial_waked = wind_sim.waked_velocities.copy()
+        # Store initial wind speeds
+        initial_background = wind_sim.wind_speeds_background.copy()
+        initial_withwakes = wind_sim.wind_speeds_withwakes.copy()
 
         # Run a step
         step_h_dict = {"step": 1}
@@ -236,20 +236,20 @@ def test_wind_meso_to_power_precom_floris_velocities_update_correctly():
 
         wind_sim.step(step_h_dict)
 
-        # Verify that velocities have been updated
+        # Verify that wind speeds have been updated
         assert not np.array_equal(
-            wind_sim.unwaked_velocities, initial_unwaked
-        ), "Unwaked velocities should have been updated"
+            wind_sim.wind_speeds_background, initial_background
+        ), "Background wind speeds should have been updated"
         assert not np.array_equal(
-            wind_sim.waked_velocities, initial_waked
-        ), "Waked velocities should have been updated"
+            wind_sim.wind_speeds_withwakes, initial_withwakes
+        ), "Withwakes wind speeds should have been updated"
 
-        # Verify the velocities match the expected values from the input data
-        expected_unwaked = np.array([9.0, 9.5, 10.0])  # ws values for step 1
-        np.testing.assert_array_equal(wind_sim.unwaked_velocities, expected_unwaked)
+        # Verify the wind speeds match the expected values from the input data
+        expected_background = np.array([9.0, 9.5, 10.0])  # ws values for step 1
+        np.testing.assert_array_equal(wind_sim.wind_speeds_background, expected_background)
 
         # Verify that wake deficits are recalculated
-        expected_wake_deficits = wind_sim.unwaked_velocities - wind_sim.waked_velocities
+        expected_wake_deficits = wind_sim.wind_speeds_background - wind_sim.wind_speeds_withwakes
         np.testing.assert_array_equal(wind_sim.floris_wake_deficits, expected_wake_deficits)
 
     finally:
