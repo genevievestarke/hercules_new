@@ -81,7 +81,7 @@ def test_HerculesModel_instantiation():
     # Check default settings
     assert hmodel.output_file == "outputs/hercules_output.h5"
     assert hmodel.log_every_n == 1
-    assert hmodel.external_data_all == {}
+    assert hmodel.external_signals_all == {}
 
     # Test with external data file and custom output file
     test_h_dict_2 = h_dict_solar.copy()
@@ -99,12 +99,12 @@ def test_HerculesModel_instantiation():
     hmodel = HerculesModel(test_h_dict_2)
 
     # Check external data loading
-    assert hmodel.external_data_all["power_reference"][0] == 1000
+    assert hmodel.external_signals_all["power_reference"][0] == 1000
     # With dt=0.5 and endtime=5.0, we have times: 0.0, 0.5, 1.0, ..., 5.5, 6.0
     # At time 1.0: value is 2000 (from data), but at index 2 (time=1.0), value is interpolated
-    # Actually external_data_all has times from starttime to endtime + 2*dt with step dt
+    # Actually external_signals_all has times from starttime to endtime + 2*dt with step dt
     # So times are: 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0
-    assert hmodel.external_data_all["power_reference"][-1] == 1000  # At time 6.0
+    assert hmodel.external_signals_all["power_reference"][-1] == 1000  # At time 6.0
 
     # Check custom output file
     assert hmodel.output_file == "test_output.h5"
@@ -194,11 +194,11 @@ def test_log_data_to_hdf5_with_external_signals():
     hmodel.h_dict["step"] = 5
 
     # Update external signals (simulate what happens in the run loop)
-    if hmodel.external_data_all:
-        for k in hmodel.external_data_all:
+    if hmodel.external_signals_all:
+        for k in hmodel.external_signals_all:
             if k == "time":
                 continue
-            hmodel.h_dict["external_signals"][k] = hmodel.external_data_all[k][hmodel.step]
+            hmodel.h_dict["external_signals"][k] = hmodel.external_signals_all[k][hmodel.step]
 
     # Run controller and hybrid_plant steps to generate plant-level outputs
     hmodel.h_dict = hmodel.controller.step(hmodel.h_dict)
@@ -221,7 +221,7 @@ def test_log_data_to_hdf5_with_external_signals():
         hmodel._flush_buffer_to_hdf5()
 
     # Check that external signal data was written correctly
-    expected_value = hmodel.external_data_all["power_reference"][5]  # Value at step 5
+    expected_value = hmodel.external_signals_all["power_reference"][5]  # Value at step 5
     assert hmodel.hdf5_datasets[expected_external_dataset][0] == expected_value
 
     # Clean up
@@ -574,9 +574,9 @@ def test_external_data_new_format_with_log_channels():
     # Verify that external_data_log_channels was set
     assert hmodel.external_data_log_channels == ["power_reference"]
 
-    # Verify that all external data was loaded into external_data_all
-    assert "power_reference" in hmodel.external_data_all
-    assert len(hmodel.external_data_all["power_reference"]) > 0
+    # Verify that all external data was loaded into external_signals_all
+    assert "power_reference" in hmodel.external_signals_all
+    assert len(hmodel.external_signals_all["power_reference"]) > 0
 
     # Clean up
     hmodel.close()
@@ -611,13 +611,13 @@ def test_external_data_backward_compatibility():
     assert hmodel.external_data_log_channels is None
 
     # Verify that data was loaded
-    assert "power_reference" in hmodel.external_data_all
+    assert "power_reference" in hmodel.external_signals_all
 
     # Clean up
     hmodel.close()
 
 
-def test_external_data_all_channels_in_h_dict():
+def test_external_signals_all_channels_in_h_dict():
     """Test that all external data channels are available in h_dict regardless of log_channels."""
     # Create a CSV with multiple channels
     import os
@@ -659,11 +659,11 @@ def test_external_data_all_channels_in_h_dict():
         hmodel.h_dict["step"] = 5
 
         # Populate external signals (as done in run loop)
-        if hmodel.external_data_all:
-            for k in hmodel.external_data_all:
+        if hmodel.external_signals_all:
+            for k in hmodel.external_signals_all:
                 if k == "time":
                     continue
-                hmodel.h_dict["external_signals"][k] = hmodel.external_data_all[k][hmodel.step]
+                hmodel.h_dict["external_signals"][k] = hmodel.external_signals_all[k][hmodel.step]
 
         # Verify ALL channels are in h_dict["external_signals"]
         assert "channel_1" in hmodel.h_dict["external_signals"]
@@ -733,11 +733,11 @@ def test_external_data_log_all_when_no_log_channels():
         hmodel.h_dict["step"] = 5
 
         # Populate external signals
-        if hmodel.external_data_all:
-            for k in hmodel.external_data_all:
+        if hmodel.external_signals_all:
+            for k in hmodel.external_signals_all:
                 if k == "time":
                     continue
-                hmodel.h_dict["external_signals"][k] = hmodel.external_data_all[k][hmodel.step]
+                hmodel.h_dict["external_signals"][k] = hmodel.external_signals_all[k][hmodel.step]
 
         # Run controller and hybrid_plant steps
         hmodel.h_dict = hmodel.controller.step(hmodel.h_dict)
@@ -801,11 +801,11 @@ def test_external_data_log_none_with_empty_list():
         hmodel.h_dict["step"] = 5
 
         # Populate external signals (all channels should be available)
-        if hmodel.external_data_all:
-            for k in hmodel.external_data_all:
+        if hmodel.external_signals_all:
+            for k in hmodel.external_signals_all:
                 if k == "time":
                     continue
-                hmodel.h_dict["external_signals"][k] = hmodel.external_data_all[k][hmodel.step]
+                hmodel.h_dict["external_signals"][k] = hmodel.external_signals_all[k][hmodel.step]
 
         # Verify ALL channels are in h_dict["external_signals"] (available to controller)
         assert "channel_x" in hmodel.h_dict["external_signals"]
