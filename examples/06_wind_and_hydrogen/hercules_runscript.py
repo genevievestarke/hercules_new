@@ -5,7 +5,7 @@ from whoc.controllers import (
     HydrogenPlantController,
     WindFarmPowerTrackingController,
 )
-from whoc.interfaces import HerculesV2Interface
+from whoc.interfaces import HerculesInterface
 
 prepare_output_directory()
 
@@ -70,7 +70,7 @@ class ControllerLimitSolar:
 
 
 # Establish controllers based on options
-interface = HerculesV2Interface(hmodel.h_dict)
+interface = HerculesInterface(hmodel.h_dict)
 
 print("Setting up controller.")
 wind_controller = WindFarmPowerTrackingController(interface, hmodel.h_dict)

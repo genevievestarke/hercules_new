@@ -18,7 +18,6 @@ df = ho.df
 h_dict = ho.h_dict
 print(h_dict.keys())
 print(h_dict["electrolyzer"].keys())
-print(h_dict["external_data_file"])
 
 # Set number of turbines
 turbines_to_plot = [0, 1, 2, 3, 4, 5, 6, 7, 8]
