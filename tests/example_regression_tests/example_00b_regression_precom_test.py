@@ -4,7 +4,7 @@ import os
 import tempfile
 
 import yaml
-from hercules.utilities_examples import ensure_example_inputs_exist
+from hercules.utilities_examples import generate_example_inputs
 from test_example_utilities import (
     copy_example_files,
     generate_input_data,
@@ -33,7 +33,7 @@ PLOT_SCRIPT_FILE = "plot_outputs.py"
 
 
 def modify_input_file_for_precom_floris(temp_dir, input_file):
-    """Modify the input file to use Wind_MesoToPowerPrecomFloris component.
+    """Modify the input file to use WindFarm component.
 
     Args:
         temp_dir (str): Path to the temporary directory.
@@ -47,13 +47,12 @@ def modify_input_file_for_precom_floris(temp_dir, input_file):
 
     # Modify the wind farm component type and ensure floris_update_time_s is present
     if "wind_farm" in h_dict:
-        h_dict["wind_farm"]["component_type"] = "Wind_MesoToPowerPrecomFloris"
+        h_dict["wind_farm"]["component_type"] = "WindFarm"
+        h_dict["wind_farm"]["wake_method"] = "precomputed"
         # Ensure a reasonable floris_update_time_s value exists
         h_dict["wind_farm"]["floris_update_time_s"] = h_dict["wind_farm"].get(
             "floris_update_time_s", 300.0
         )
-        # Add logging_option for the new logging system
-        h_dict["wind_farm"]["logging_option"] = "all"
 
     # Write the modified YAML file back
     with open(input_path, "w") as f:
@@ -103,12 +102,12 @@ def print_expected_values():
 def test_example_00b_precom_floris_limited_time_regression():
     """Test that example 00 with precomputed FLORIS runs correctly with limited time steps.
 
-    This test modifies the example 00 configuration to use Wind_MesoToPowerPrecomFloris
+    This test modifies the example 00 configuration to use the WindFarm
     component type and run for only a few time steps. It verifies that the final
     outputs are reasonable and consistent.
     """
     # Ensure centralized example inputs exist
-    ensure_example_inputs_exist()
+    generate_example_inputs()
 
     # Create a temporary directory for this test
     with tempfile.TemporaryDirectory() as temp_dir:

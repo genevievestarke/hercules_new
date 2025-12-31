@@ -1,14 +1,18 @@
+import logging
 import os
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 from hercules.utilities import (
+    find_time_utc_value,
     interpolate_df,
-    interpolate_df_fast,
     load_h_dict_from_text,
     load_hercules_input,
+    local_time_to_utc,
+    setup_logging,
 )
 
 
@@ -126,8 +130,8 @@ def test_load_hercules_input_valid_file():
 
     # Check required keys are present
     assert "dt" in result
-    assert "starttime" in result
-    assert "endtime" in result
+    assert "starttime_utc" in result
+    assert "endtime_utc" in result
     assert "plant" in result
 
     # Check plant structure
@@ -138,7 +142,7 @@ def test_load_hercules_input_valid_file():
     # Check component configurations
     assert "wind_farm" in result
     assert "solar_farm" in result
-    assert result["wind_farm"]["component_type"] == "Wind_MesoToPower"
+    assert result["wind_farm"]["component_type"] == "WindFarm"
     assert result["solar_farm"]["component_type"] == "SolarPySAMPVWatts"
 
     # Check verbose defaults to False
@@ -172,7 +176,12 @@ def test_load_hercules_input_invalid_plant_structure():
     Creates a config with plant as string instead of dict
     and verifies the function raises appropriate error.
     """
-    invalid_config = {"dt": 1.0, "starttime": 0.0, "endtime": 30.0, "plant": "not_a_dict"}
+    invalid_config = {
+        "dt": 1.0,
+        "starttime_utc": "2018-05-10 12:31:00",
+        "endtime_utc": "2018-05-10 12:31:30",
+        "plant": "not_a_dict",
+    }
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         import yaml
@@ -195,8 +204,8 @@ def test_load_hercules_input_invalid_component_type():
     """
     invalid_config = {
         "dt": 1.0,
-        "starttime": 0.0,
-        "endtime": 30.0,
+        "starttime_utc": "2018-05-10 12:31:00",
+        "endtime_utc": "2018-05-10 12:31:30",
         "plant": {"interconnect_limit": 30000.0},
         "wind_farm": {"component_type": "InvalidType"},
     }
@@ -222,8 +231,8 @@ def test_load_hercules_input_verbose_default():
     """
     config_without_verbose = {
         "dt": 1.0,
-        "starttime": 0.0,
-        "endtime": 30.0,
+        "starttime_utc": "2018-05-10 12:31:00",
+        "endtime_utc": "2018-05-10 12:31:30",
         "plant": {"interconnect_limit": 30000.0},
     }
 
@@ -236,6 +245,40 @@ def test_load_hercules_input_verbose_default():
     try:
         result = load_hercules_input(temp_file)
         assert result["verbose"] is False
+    finally:
+        os.unlink(temp_file)
+
+
+def test_load_hercules_input_external_data_without_file():
+    """Test that external_data without external_data_file is silently ignored.
+
+    Verifies that if external_data is specified but external_data_file is missing,
+    the external_data key is removed (treated as blank).
+    """
+    import tempfile
+
+    import yaml
+
+    config = {
+        "dt": 1.0,
+        "starttime_utc": "2020-01-01T00:00:00Z",
+        "endtime_utc": "2020-01-01T00:15:50Z",
+        "plant": {"interconnect_limit": 30000.0},
+        "external_data": {
+            "log_channels": ["channel1", "channel2"],
+            # Note: external_data_file is missing
+        },
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config, f)
+        temp_file = f.name
+
+    try:
+        result = load_hercules_input(temp_file)
+
+        # Verify that external_data was removed (treated as blank)
+        assert "external_data" not in result
     finally:
         os.unlink(temp_file)
 
@@ -253,7 +296,7 @@ def test_load_h_dict_from_text_valid_file():
         "starttime": 0.0,
         "endtime": 3600.0,
         "plant": {"interconnect_limit": 30000.0, "location": "test_site"},
-        "wind_farm": {"component_type": "Wind_MesoToPower", "capacity": 100.0},
+        "wind_farm": {"component_type": "WindFarm", "capacity": 100.0},
         "solar_farm": {"component_type": "SolarPySAMPVWatts", "capacity": 50.0},
         "verbose": False,
         "time": 1800.0,
@@ -276,7 +319,7 @@ def test_load_h_dict_from_text_valid_file():
         # Verify specific nested structures
         assert result["plant"]["interconnect_limit"] == 30000.0
         assert result["plant"]["location"] == "test_site"
-        assert result["wind_farm"]["component_type"] == "Wind_MesoToPower"
+        assert result["wind_farm"]["component_type"] == "WindFarm"
         assert result["solar_farm"]["capacity"] == 50.0
         assert result["external_signals"]["wind_speed"] == 8.5
 
@@ -333,8 +376,8 @@ def test_output_configuration_validation():
 
     base_h_dict = {
         "dt": 1.0,
-        "starttime": 0.0,
-        "endtime": 10.0,
+        "starttime_utc": "2018-05-10 12:31:00",
+        "endtime_utc": "2018-05-10 12:31:10",
         "plant": {"interconnect_limit": 5000},
         "solar_farm": {"component_type": "SolarPySAMPVWatts"},
     }
@@ -355,6 +398,67 @@ def test_output_configuration_validation():
         load_hercules_input_from_dict(test_dict)
 
 
+def test_load_hercules_input_utc_validation():
+    """Test UTC datetime string validation.
+
+    Verifies that:
+    - Strings with 'Z' are accepted
+    - Naive strings are accepted
+    - Strings with timezone offsets are rejected
+    """
+    # Test accepted formats: explicit UTC with Z
+    valid_config_z = {
+        "dt": 1.0,
+        "starttime_utc": "2020-01-01T00:00:00Z",
+        "endtime_utc": "2020-01-01T01:00:00Z",
+        "plant": {"interconnect_limit": 30000.0},
+    }
+    result = load_hercules_input_from_dict(valid_config_z)
+    assert isinstance(result["starttime_utc"], pd.Timestamp)
+    assert result["starttime_utc"].tz is not None
+
+    # Test accepted formats: naive string (treated as UTC)
+    valid_config_naive = {
+        "dt": 1.0,
+        "starttime_utc": "2020-01-01T00:00:00",
+        "endtime_utc": "2020-01-01T01:00:00",
+        "plant": {"interconnect_limit": 30000.0},
+    }
+    result = load_hercules_input_from_dict(valid_config_naive)
+    assert isinstance(result["starttime_utc"], pd.Timestamp)
+    assert result["starttime_utc"].tz is not None
+
+    # Test rejected formats: timezone offset (positive)
+    invalid_config_positive_offset = {
+        "dt": 1.0,
+        "starttime_utc": "2020-01-01T00:00:00+05:00",
+        "endtime_utc": "2020-01-01T01:00:00+05:00",
+        "plant": {"interconnect_limit": 30000.0},
+    }
+    with pytest.raises(ValueError, match="contains a timezone offset"):
+        load_hercules_input_from_dict(invalid_config_positive_offset)
+
+    # Test rejected formats: timezone offset (negative)
+    invalid_config_negative_offset = {
+        "dt": 1.0,
+        "starttime_utc": "2020-01-01T00:00:00-08:00",
+        "endtime_utc": "2020-01-01T01:00:00-08:00",
+        "plant": {"interconnect_limit": 30000.0},
+    }
+    with pytest.raises(ValueError, match="contains a timezone offset"):
+        load_hercules_input_from_dict(invalid_config_negative_offset)
+
+    # Test rejected formats: UTC offset (even +00:00 should use Z)
+    invalid_config_utc_offset = {
+        "dt": 1.0,
+        "starttime_utc": "2020-01-01T00:00:00+00:00",
+        "endtime_utc": "2020-01-01T01:00:00+00:00",
+        "plant": {"interconnect_limit": 30000.0},
+    }
+    with pytest.raises(ValueError, match="contains a timezone offset"):
+        load_hercules_input_from_dict(invalid_config_utc_offset)
+
+
 def load_hercules_input_from_dict(h_dict):
     """Helper function to test hercules input validation from a dictionary."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -372,73 +476,72 @@ def load_hercules_input_from_dict(h_dict):
 # ==================== INTERPOLATION COMPARISON TESTS ====================
 
 
-def test_interpolate_df_functions_identical_simple():
-    """Test that interpolate_df and interpolate_df_fast produce identical results for simple case.
+# ==================== find_time_utc_value TESTS ====================
 
-    Creates a simple DataFrame with linear values and verifies both functions
-    produce exactly the same interpolated results.
-    """
-    # Create a simple dataframe with time points 0, 2, 4, 6, 8, 10
+
+def test_find_time_utc_interpolates_midpoint():
+    """Interpolates UTC between two points at the midpoint time."""
     df = pd.DataFrame(
         {
-            "time": [0, 2, 4, 6, 8, 10],
-            "value": [0, 2, 4, 6, 8, 10],  # Linear function y = x
-            "power": [0, 4, 16, 36, 64, 100],  # Quadratic function y = x^2
+            "time": [0.0, 10.0],
+            "time_utc": pd.to_datetime(
+                [
+                    "2023-01-01 00:00:00+00:00",
+                    "2023-01-01 00:00:10+00:00",
+                ],
+                utc=True,
+            ),
         }
     )
 
-    # Create new_time with more points (upsampling)
-    new_time = np.linspace(0, 10, 21)  # 0, 0.5, 1.0, ..., 10.0
-
-    # Interpolate with both functions
-    result_original = interpolate_df(df, new_time)
-    result_fast = interpolate_df_fast(df, new_time)
-
-    # Verify results are identical
-    pd.testing.assert_frame_equal(result_original, result_fast, check_dtype=False)
+    mid = find_time_utc_value(df, 5.0)
+    assert mid == pd.Timestamp("2023-01-01 00:00:05", tz="UTC")
 
 
-def test_interpolate_df_functions_identical_with_datetime():
-    """Test that both functions produce identical results with datetime columns.
-
-    Creates a DataFrame with both numeric and datetime columns and verifies
-    both interpolation functions produce exactly the same results.
-    """
-    # Create a dataframe with time, numeric, and datetime columns
+def test_find_time_utc_extrapolates_before_range():
+    """Extrapolates UTC for a time before the first sample."""
     df = pd.DataFrame(
         {
-            "time": [0, 5, 10, 15, 20],
-            "temperature": [20.0, 25.0, 30.0, 28.0, 22.0],
-            "pressure": [1013.25, 1015.0, 1012.0, 1014.5, 1013.8],
-            "time_utc": [
-                "2023-01-01 00:00:00",
-                "2023-01-01 05:00:00",
-                "2023-01-01 10:00:00",
-                "2023-01-01 15:00:00",
-                "2023-01-01 20:00:00",
-            ],
+            "time": [0.0, 10.0],
+            "time_utc": pd.to_datetime(
+                [
+                    "2023-01-01 00:00:00+00:00",
+                    "2023-01-01 00:00:10+00:00",
+                ],
+                utc=True,
+            ),
         }
     )
 
-    # Convert time_utc to datetime
-    df["time_utc"] = pd.to_datetime(df["time_utc"], utc=True)
-
-    # Create new_time points for interpolation
-    new_time = np.array([0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20])
-
-    # Interpolate with both functions
-    result_original = interpolate_df(df, new_time)
-    result_fast = interpolate_df_fast(df, new_time)
-
-    # Verify results are identical
-    pd.testing.assert_frame_equal(result_original, result_fast, check_dtype=False)
+    # 1 second per unit time -> time=-5 yields -5 seconds from start
+    t = find_time_utc_value(df, -5.0)
+    assert t == pd.Timestamp("2022-12-31 23:59:55", tz="UTC")
 
 
-def test_interpolate_df_functions_identical_large_dataset():
-    """Test that both functions produce identical results for larger datasets.
+def test_find_time_utc_extrapolates_after_range():
+    """Extrapolates UTC for a time after the last sample."""
+    df = pd.DataFrame(
+        {
+            "time": [0.0, 10.0],
+            "time_utc": pd.to_datetime(
+                [
+                    "2023-01-01 00:00:00+00:00",
+                    "2023-01-01 00:00:10+00:00",
+                ],
+                utc=True,
+            ),
+        }
+    )
 
-    Creates a larger DataFrame to test the polars code path and verify
-    both functions produce identical results even with size optimizations.
+    t = find_time_utc_value(df, 15.0)
+    assert t == pd.Timestamp("2023-01-01 00:00:15", tz="UTC")
+
+
+def test_interpolate_df_with_large_dataset():
+    """Test interpolate_df with larger datasets.
+
+    Creates a larger DataFrame to verify the function works correctly
+    with datasets using the polars backend.
     """
     # Create a larger dataset (>1000 rows to trigger polars path)
     n_points = 1500
@@ -462,62 +565,13 @@ def test_interpolate_df_functions_identical_large_dataset():
     # Create new time points (downsampling to 500 points)
     new_time = np.linspace(0, 1000, 500)
 
-    # Interpolate with both functions
-    result_original = interpolate_df(df, new_time)
-    result_fast = interpolate_df_fast(df, new_time)
+    # Interpolate
+    result = interpolate_df(df, new_time)
 
-    # Verify results are identical (allow small floating point differences)
-    pd.testing.assert_frame_equal(result_original, result_fast, check_dtype=False, rtol=1e-10)
-
-
-def test_interpolate_df_functions_identical_edge_cases():
-    """Test that both functions handle edge cases identically.
-
-    Tests various edge cases including single data points, identical time points,
-    and boundary conditions.
-    """
-    # Test with minimal dataset (3 points)
-    df_minimal = pd.DataFrame(
-        {
-            "time": [0, 1, 2],
-            "value": [10, 20, 30],
-        }
-    )
-    new_time_minimal = np.array([0, 0.5, 1, 1.5, 2])
-
-    result_orig_minimal = interpolate_df(df_minimal, new_time_minimal)
-    result_fast_minimal = interpolate_df_fast(df_minimal, new_time_minimal)
-    pd.testing.assert_frame_equal(result_orig_minimal, result_fast_minimal, check_dtype=False)
-
-    # Test with boundary points only
-    new_time_boundary = np.array([0, 2])
-    result_orig_boundary = interpolate_df(df_minimal, new_time_boundary)
-    result_fast_boundary = interpolate_df_fast(df_minimal, new_time_boundary)
-    pd.testing.assert_frame_equal(result_orig_boundary, result_fast_boundary, check_dtype=False)
-
-
-def test_interpolate_df_functions_identical_multiple_dtypes():
-    """Test both functions with various data types.
-
-    Creates a DataFrame with different numeric types and verifies
-    both functions handle them identically.
-    """
-    df = pd.DataFrame(
-        {
-            "time": np.array([0, 1, 2, 3, 4], dtype=np.float64),
-            "int_col": np.array([10, 20, 30, 40, 50], dtype=np.int32),
-            "float32_col": np.array([1.1, 2.2, 3.3, 4.4, 5.5], dtype=np.float32),
-            "float64_col": np.array([100.1, 200.2, 300.3, 400.4, 500.5], dtype=np.float64),
-        }
-    )
-
-    new_time = np.array([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4])
-
-    result_original = interpolate_df(df, new_time)
-    result_fast = interpolate_df_fast(df, new_time)
-
-    # Verify results are identical
-    pd.testing.assert_frame_equal(result_original, result_fast, check_dtype=False)
+    # Verify result has the correct shape and columns
+    assert len(result) == len(new_time)
+    assert list(result.columns) == list(df.columns)
+    assert np.allclose(result["time"], new_time)
 
 
 def test_read_hercules_hdf5_external_signals():
@@ -536,7 +590,13 @@ def test_read_hercules_hdf5_external_signals():
         with h5py.File(temp_file, "w") as f:
             # Create basic data structure
             f.create_group("data")
-            f.create_group("metadata")
+            metadata = f.create_group("metadata")
+
+            # Add starttime_utc metadata (required)
+            import pandas as pd
+
+            starttime_utc = pd.to_datetime("2018-05-10 12:31:00", utc=True)
+            metadata.attrs["starttime_utc"] = starttime_utc.timestamp()
 
             # Add basic time data
             f["data/time"] = np.array([0, 1, 2])
@@ -572,97 +632,295 @@ def test_read_hercules_hdf5_external_signals():
         os.unlink(temp_file)
 
 
-# def test_read_hercules_hdf5_subset():
-#     """Test reading subset of HDF5 file data.
+def test_local_time_to_utc_with_timezone():
+    """Test local_time_to_utc with explicit timezone.
 
-#     Creates a mock HDF5 file and verifies that the subset function
-#     correctly filters by columns and time range.
-#     """
-#     import h5py
+    Tests conversion of local time to UTC with daylight saving time handling.
+    """
+    # Midnight Jan 1, 2025 in Mountain Time (MST, UTC-7, no DST)
+    result_jan = local_time_to_utc("2025-01-01T00:00:00", tz="America/Denver")
+    assert result_jan == "2025-01-01T07:00:00Z"
 
-#     with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as f:
-#         temp_file = f.name
+    # Midnight July 1, 2025 in Mountain Time (MDT, UTC-6, DST)
+    result_july = local_time_to_utc("2025-07-01T00:00:00", tz="America/Denver")
+    assert result_july == "2025-07-01T06:00:00Z"
 
-#     try:
-#         # Create mock HDF5 file with more data
-#         with h5py.File(temp_file, "w") as f:
-#             f.create_group("data")
-#             f.create_group("metadata")
+    # Test with different timezone (Eastern Time)
+    # Midnight Jan 1, 2025 in Eastern Time (EST, UTC-5, no DST)
+    result_eastern_jan = local_time_to_utc("2025-01-01T00:00:00", tz="America/New_York")
+    assert result_eastern_jan == "2025-01-01T05:00:00Z"
 
-#             # Add time data (0, 1, 2, 3, 4, 5 seconds)
-#             f["data/time"] = np.array([0, 1, 2, 3, 4, 5])
-#             f["data/step"] = np.array([0, 1, 2, 3, 4, 5])
-#             f["data/clock_time"] = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    # Midnight July 1, 2025 in Eastern Time (EDT, UTC-4, DST)
+    result_eastern_july = local_time_to_utc("2025-07-01T00:00:00", tz="America/New_York")
+    assert result_eastern_july == "2025-07-01T04:00:00Z"
 
-#             # Add plant data
-#             f["data/plant_power"] = np.array([100, 200, 300, 400, 500, 600])
-#             f["data/plant_locally_generated_power"] = np.array([90, 180, 270, 360, 450, 540])
 
-#             # Add components group
-#             components_group = f.create_group("data/components")
-#             components_group["wind_farm.power"] = np.array([50, 100, 150, 200, 250, 300])
-#             components_group["solar_farm.power"] = np.array([40, 80, 120, 160, 200, 240])
+def test_local_time_to_utc_with_pandas_timestamp():
+    """Test local_time_to_utc with pandas Timestamp input."""
+    dt = pd.Timestamp("2025-01-01T00:00:00")
+    result = local_time_to_utc(dt, tz="America/Denver")
+    assert result == "2025-01-01T07:00:00Z"
 
-#             # Add external signals
-#             external_signals_group = f.create_group("data/external_signals")
-#             external_signals_group["external_signals.wind_speed"] = np.array(
-#                 [8.5, 9.0, 8.8, 9.2, 8.9, 9.1]
-#             )
-#             external_signals_group["external_signals.temperature"] = np.array(
-#                 [20.0, 21.0, 20.5, 22.0, 21.5, 22.5]
-#             )
 
-#         # Test column filtering
-#         from hercules.utilities import read_hercules_hdf5_subset
+def test_local_time_to_utc_with_different_formats():
+    """Test local_time_to_utc with different datetime string formats."""
+    # ISO format with T
+    result1 = local_time_to_utc("2025-01-01T00:00:00", tz="America/Denver")
+    assert result1 == "2025-01-01T07:00:00Z"
 
-#         result_columns = read_hercules_hdf5_subset(
-#             temp_file, columns=["wind_farm.power", "external_signals.wind_speed"]
-#         )
+    # ISO format with space
+    result2 = local_time_to_utc("2025-01-01 00:00:00", tz="America/Denver")
+    assert result2 == "2025-01-01T07:00:00Z"
 
-#         # Verify only requested columns plus time are present
-#         expected_columns = {
-#             "time",
-#             "wind_farm.power",
-#             "external_signals.wind_speed",
-#         }
-#         assert set(result_columns.columns) == expected_columns
+    # Date only (defaults to midnight)
+    result3 = local_time_to_utc("2025-01-01", tz="America/Denver")
+    assert result3 == "2025-01-01T07:00:00Z"
 
-#         # Test time range filtering
-#         result_time = read_hercules_hdf5_subset(temp_file, time_range=(1.5, 4.5))
 
-#         # Verify time range is correct (should include times 2, 3, 4)
-#         assert len(result_time) == 3
-#         np.testing.assert_array_equal(result_time["time"], [2, 3, 4])
+def test_local_time_to_utc_invalid_timezone():
+    """Test local_time_to_utc with invalid timezone raises error."""
+    with pytest.raises(ValueError, match="Invalid timezone"):
+        local_time_to_utc("2025-01-01T00:00:00", tz="Invalid/Timezone")
 
-#         # Test both filters together
-#         result_both = read_hercules_hdf5_subset(
-#             temp_file, columns=["solar_farm.power"], time_range=(1.0, 3.0)
-#         )
 
-#         # Verify both filters work together
-#         assert len(result_both) == 3  # times 1, 2, 3 (inclusive of end time)
-#         assert "solar_farm.power" in result_both.columns
-#         assert "wind_farm.power" not in result_both.columns
-#         assert set(result_both.columns) == {"time", "solar_farm.power"}
+def test_local_time_to_utc_invalid_datetime():
+    """Test local_time_to_utc with invalid datetime string raises error."""
+    with pytest.raises(ValueError, match="Cannot parse local_time"):
+        local_time_to_utc("invalid-datetime", tz="America/Denver")
 
-#         # Test stride parameter
-#         result_stride = read_hercules_hdf5_subset(temp_file, stride=2)
 
-#         # Verify stride works (should read every 2nd point: 0, 2, 4)
-#         assert len(result_stride) == 3
-#         np.testing.assert_array_equal(result_stride["time"], [0, 2, 4])
+def test_local_time_to_utc_missing_timezone():
+    """Test local_time_to_utc with missing timezone parameter raises error."""
+    with pytest.raises(ValueError, match="Timezone parameter 'tz' is required"):
+        local_time_to_utc("2025-01-01T00:00:00", tz=None)
 
-#         # Test stride with time range
-#         result_stride_time = read_hercules_hdf5_subset(temp_file, time_range=(1.0, 4.0), stride=2)
 
-#         # Should get times 1, 3 (within range, every 2nd point starting from first in range)
-#         assert len(result_stride_time) == 2
-#         np.testing.assert_array_equal(result_stride_time["time"], [1, 3])
+def test_local_time_to_utc_returns_z_suffix():
+    """Test that local_time_to_utc returns string with Z suffix."""
+    result = local_time_to_utc("2025-01-01T00:00:00", tz="America/Denver")
+    assert result.endswith("Z")
+    assert "T" in result
+    assert len(result) == 20  # Format: YYYY-MM-DDTHH:MM:SSZ
 
-#         # Test with no columns specified (should return only time)
-#         result_time_only = read_hercules_hdf5_subset(temp_file)
-#         assert set(result_time_only.columns) == {"time"}
-#         assert len(result_time_only) == 6  # All time points
 
-#     finally:
-#         os.unlink(temp_file)
+def test_setup_logging_basic():
+    """Test basic setup_logging with default parameters."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Change to temp directory for this test
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Call setup_logging with defaults
+            logger = setup_logging()
+
+            # Verify logger was created
+            assert logger is not None
+            assert logger.name == "hercules"
+            assert logger.level == logging.INFO
+
+            # Verify handlers were added
+            assert len(logger.handlers) == 2  # file + console
+
+            # Verify outputs directory was created
+            assert Path("outputs").exists()
+            assert Path("outputs/log_hercules.log").exists()
+
+            # Test logging works
+            logger.info("Test message")
+
+            # Read log file
+            with open("outputs/log_hercules.log") as f:
+                content = f.read()
+                assert "Test message" in content
+
+        finally:
+            # Clean up logger handlers
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            os.chdir(original_cwd)
+
+
+def test_setup_logging_custom_logger_name():
+    """Test setup_logging with custom logger name."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            logger = setup_logging(logger_name="wind_farm", log_file="log_wind.log")
+
+            assert logger.name == "wind_farm"
+            assert Path("outputs/log_wind.log").exists()
+
+            # Test prefix in console handler (not file handler)
+            console_handler = [
+                h
+                for h in logger.handlers
+                if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+            ][0]
+            formatter_str = console_handler.formatter._fmt
+            assert "[WIND_FARM]" in formatter_str
+
+        finally:
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            os.chdir(original_cwd)
+
+
+def test_setup_logging_no_console_output():
+    """Test setup_logging with console output disabled."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            logger = setup_logging(console_output=False)
+
+            # Should only have file handler
+            assert len(logger.handlers) == 1
+            assert isinstance(logger.handlers[0], logging.FileHandler)
+
+        finally:
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            os.chdir(original_cwd)
+
+
+def test_setup_logging_custom_console_prefix():
+    """Test setup_logging with custom console prefix."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            logger = setup_logging(logger_name="solar", console_prefix="SOLAR_PV")
+
+            # Find console handler (not file handler)
+            console_handler = [
+                h
+                for h in logger.handlers
+                if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+            ][0]
+            formatter_str = console_handler.formatter._fmt
+            assert "[SOLAR_PV]" in formatter_str
+
+        finally:
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            os.chdir(original_cwd)
+
+
+def test_setup_logging_full_path():
+    """Test setup_logging with full file path and use_outputs_dir=False."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = str(Path(tmpdir) / "custom_logs" / "test.log")
+
+        logger = setup_logging(logger_name="battery", log_file=log_file, use_outputs_dir=False)
+
+        # Verify log file was created at specified path
+        assert Path(log_file).exists()
+        assert Path(log_file).parent.name == "custom_logs"
+
+        # Test logging
+        logger.info("Battery test message")
+        with open(log_file) as f:
+            content = f.read()
+            assert "Battery test message" in content
+
+        # Clean up
+        for handler in logger.handlers[:]:
+            handler.close()
+            logger.removeHandler(handler)
+
+
+def test_setup_logging_custom_log_level():
+    """Test setup_logging with custom log level."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            logger = setup_logging(log_level=logging.DEBUG)
+
+            assert logger.level == logging.DEBUG
+
+            # Test that debug messages are logged
+            logger.debug("Debug message")
+            with open("outputs/log_hercules.log") as f:
+                content = f.read()
+                assert "Debug message" in content
+
+        finally:
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            os.chdir(original_cwd)
+
+
+def test_setup_logging_clears_existing_handlers():
+    """Test that setup_logging clears existing handlers to avoid duplicates."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Create logger twice
+            logger1 = setup_logging(logger_name="test_logger")
+            num_handlers_first = len(logger1.handlers)
+
+            logger2 = setup_logging(logger_name="test_logger")
+            num_handlers_second = len(logger2.handlers)
+
+            # Should have same number of handlers (old ones cleared)
+            assert num_handlers_first == num_handlers_second
+            assert logger1 is logger2  # Same logger instance
+
+        finally:
+            for handler in logger1.handlers[:]:
+                handler.close()
+                logger1.removeHandler(handler)
+            os.chdir(original_cwd)
+
+
+def test_setup_logging_multiple_loggers():
+    """Test that multiple loggers can be created with different names."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            logger1 = setup_logging(logger_name="logger1", log_file="log1.log")
+            logger2 = setup_logging(logger_name="logger2", log_file="log2.log")
+
+            # Verify they are different loggers
+            assert logger1 is not logger2
+            assert logger1.name == "logger1"
+            assert logger2.name == "logger2"
+
+            # Verify separate log files
+            logger1.info("Message from logger1")
+            logger2.info("Message from logger2")
+
+            with open("outputs/log1.log") as f:
+                content1 = f.read()
+                assert "Message from logger1" in content1
+                assert "Message from logger2" not in content1
+
+            with open("outputs/log2.log") as f:
+                content2 = f.read()
+                assert "Message from logger2" in content2
+                assert "Message from logger1" not in content2
+
+        finally:
+            for handler in logger1.handlers[:]:
+                handler.close()
+                logger1.removeHandler(handler)
+            for handler in logger2.handlers[:]:
+                handler.close()
+                logger2.removeHandler(handler)
+            os.chdir(original_cwd)

@@ -4,13 +4,13 @@ from hercules.plant_components.battery_lithium_ion import BatteryLithiumIon
 from hercules.plant_components.battery_simple import BatterySimple
 from hercules.plant_components.electrolyzer_plant import ElectrolyzerPlant
 from hercules.plant_components.solar_pysam_pvwatts import SolarPySAMPVWatts
-from hercules.plant_components.wind_meso_to_power import Wind_MesoToPower
-from hercules.plant_components.wind_meso_to_power_precom_floris import Wind_MesoToPowerPrecomFloris
+from hercules.plant_components.wind_farm import WindFarm
+from hercules.plant_components.wind_farm_scada_power import WindFarmSCADAPower
 from hercules.utilities import get_available_component_names, get_available_generator_names
 
 
 class HybridPlant:
-    """Manages hybrid plant components for the Hercules emulator.
+    """Manages hybrid plant components for Hercules.
 
     This class handles the initialization, execution, and coordination of various
     plant components including wind farms, solar panels, batteries,
@@ -77,39 +77,6 @@ class HybridPlant:
                 h_dict
             )
 
-        # If any components include time_utc fields, confirm that all components
-        # have the same values and add them to the h_dict at top level
-        for time_field in ["zero_time_utc", "start_time_utc"]:
-            time_value = None
-            components_with_field = []
-
-            # Find all components that have this time field
-            for component_name in self.component_names:
-                if time_field in h_dict[component_name]:
-                    components_with_field.append(component_name)
-                    current_time = h_dict[component_name][time_field]
-
-                    if time_value is None:
-                        time_value = current_time
-                    else:
-                        # Normalize both times for comparison
-                        # Convert timezone-naive to UTC if needed, keep timezone-aware as is
-                        normalized_time_value = (
-                            time_value.replace(tzinfo=None)
-                            if hasattr(time_value, "tzinfo") and time_value.tzinfo is not None
-                            else time_value
-                        )
-                        normalized_current_time = (
-                            current_time.replace(tzinfo=None)
-                            if hasattr(current_time, "tzinfo") and current_time.tzinfo is not None
-                            else current_time
-                        )
-
-                        if normalized_current_time != normalized_time_value:
-                            raise ValueError(f"All components must have the same {time_field}")
-
-            h_dict[time_field] = time_value
-
         # Add the plant level outputs to the h_dict
         h_dict = self.compute_plant_level_outputs(h_dict)
 
@@ -128,25 +95,28 @@ class HybridPlant:
         Raises:
             Exception: If the component_type is not recognized.
         """
-        if h_dict[component_name]["component_type"] == "Wind_MesoToPower":
-            return Wind_MesoToPower(h_dict)
+        component_type = h_dict[component_name]["component_type"]
 
-        if h_dict[component_name]["component_type"] == "Wind_MesoToPowerPrecomFloris":
-            return Wind_MesoToPowerPrecomFloris(h_dict)
+        # Handle wind farm component types with unified WindFarm class
+        if component_type == "WindFarm":
+            return WindFarm(h_dict)
 
-        if h_dict[component_name]["component_type"] == "SolarPySAMPVWatts":
+        if component_type == "WindFarmSCADAPower":
+            return WindFarmSCADAPower(h_dict)
+
+        if component_type == "SolarPySAMPVWatts":
             return SolarPySAMPVWatts(h_dict)
 
-        if h_dict[component_name]["component_type"] == "BatteryLithiumIon":
+        if component_type == "BatteryLithiumIon":
             return BatteryLithiumIon(h_dict)
 
-        if h_dict[component_name]["component_type"] == "BatterySimple":
+        if component_type == "BatterySimple":
             return BatterySimple(h_dict)
 
-        if h_dict[component_name]["component_type"] == "ElectrolyzerPlant":
+        if component_type == "ElectrolyzerPlant":
             return ElectrolyzerPlant(h_dict)
 
-        raise Exception("Unknown component_type: ", h_dict[component_name]["component_type"])
+        raise Exception("Unknown component_type: ", component_type)
 
     def step(self, h_dict):
         """Execute one simulation step for all plant components.
