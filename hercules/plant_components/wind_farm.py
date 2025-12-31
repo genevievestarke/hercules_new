@@ -9,13 +9,14 @@ from hercules.plant_components.component_base import ComponentBase
 from hercules.utilities import (
     hercules_float_type,
     interpolate_df,
-    load_perffile,
     load_yaml,
 )
+from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import minimize_scalar
 from scipy.stats import circmean
 
 RPM2RADperSec = 2 * np.pi / 60.0
+RAD2DEG = 180.0 / np.pi
 
 
 class WindFarm(ComponentBase):
@@ -864,10 +865,35 @@ class Turbine1dofModel:
         # Save the turbine dict
         self.turbine_dict = turbine_dict
 
+        # Obtain required data from turbine_dict
+        self.rotor_inertia = self.turbine_dict["dof1_model"]["rotor_inertia"]
+        self.rated_rotor_speed = self.turbine_dict["dof1_model"]["rated_rotor_speed"]
+        self.rated_torque = self.turbine_dict["dof1_model"]["rated_torque"]
+        self.perffile = turbine_dict["dof1_model"]["cq_table_file"]
+
+        # Set default values of optional parameters
+        self.rho = self.turbine_dict["dof1_model"].get("rho", 1.225)
+        self.filterfreq_rotor_speed = self.turbine_dict["dof1_model"].get(
+            "filterfreq_rotor_speed", 1.5708
+        )
+        self.gearbox_ratio = self.turbine_dict["dof1_model"].get("gearbox_ratio", 1.0)
+        self.initial_rpm = self.turbine_dict["dof1_model"].get("initial_rpm", 10)
+        self.gen_efficiency = self.turbine_dict["dof1_model"].get("gen_efficiency", 1.0)
+        self.max_pitch_rate = self.turbine_dict["dof1_model"].get("max_pitch_rate", np.inf)
+        self.max_torque_rate = self.turbine_dict["dof1_model"].get("max_torque_rate", np.inf)
+
+        # Calculate rated power
+        self.rated_power = (
+            self.rated_torque * self.rated_rotor_speed * self.gearbox_ratio * self.gen_efficiency
+        )
+
         # Set filter parameter for rotor speed
         self.filteralpha = np.exp(
             -self.dt * self.turbine_dict["dof1_model"]["filterfreq_rotor_speed"]
         )
+
+        # Initialize the integrated controller error to 0
+        self.omegaferror_integrated = 0.0
 
         # Obtain more data from floris
         turbine_type = fmodel.core.farm.turbine_definitions[0]
@@ -876,13 +902,13 @@ class Turbine1dofModel:
 
         # Save performance data functions
         perffile = turbine_dict["dof1_model"]["cq_table_file"]
-        self.perffuncs = load_perffile(perffile)
+        self.perffuncs = self.load_perffile(perffile)
 
         self.rho = self.turbine_dict["dof1_model"]["rho"]
         self.max_pitch_rate = self.turbine_dict["dof1_model"]["max_pitch_rate"]
         self.max_torque_rate = self.turbine_dict["dof1_model"]["max_torque_rate"]
         omega0 = self.turbine_dict["dof1_model"]["initial_rpm"] * RPM2RADperSec
-        pitch, gentq = self.simplecontroller(initial_wind_speed, omega0)
+        pitch, gentq = self.simplecontroller(omega0)
         tsr = self.rotor_radius * omega0 / initial_wind_speed
         prev_power = (
             self.perffuncs["Cp"]([tsr, pitch])
@@ -890,6 +916,7 @@ class Turbine1dofModel:
             * self.rho
             * self.rotor_area
             * initial_wind_speed**3
+            * self.gen_efficiency
         )
         self.prev_power = np.array(prev_power[0] / 1000.0, dtype=hercules_float_type)
         self.prev_omega = omega0
@@ -900,7 +927,7 @@ class Turbine1dofModel:
             * self.rotor_area
             * self.rotor_radius
             * initial_wind_speed**2
-            * self.perffuncs["Cq"]([tsr, pitch])
+            * self.perffuncs["Cq"]([tsr, pitch])[0]
         )
         self.prev_gentq = gentq
         self.prev_pitch = pitch
@@ -908,10 +935,10 @@ class Turbine1dofModel:
     def get_rated_power(self):
         """Get the rated power of the turbine.
 
-        Raises:
-            NotImplementedError: 1-DOF turbine model does not have a rated power.
+        Returns:
+            float: The rated power of the turbine in kW.
         """
-        raise NotImplementedError("1-DOF turbine model does not have a rated power")
+        return self.rated_power / 1000
 
     def step(self, wind_speed, power_setpoint):
         """Execute one simulation step for the 1-DOF turbine model.
@@ -928,25 +955,22 @@ class Turbine1dofModel:
         """
         omega = (
             self.prev_omega
-            + (
-                self.prev_aerotq
-                - self.prev_gentq * self.turbine_dict["dof1_model"]["gearbox_ratio"]
-            )
+            + (self.prev_aerotq - self.prev_gentq * self.gearbox_ratio)
             * self.dt
-            / self.turbine_dict["dof1_model"]["rotor_inertia"]
+            / self.rotor_inertia
         )
         omegaf = (1 - self.filteralpha) * omega + self.filteralpha * (self.prev_omegaf)
-        pitch, gentq = self.simplecontroller(wind_speed, omegaf)
+        pitch, gentq = self.simplecontroller(omegaf)
         tsr = float(omegaf * self.rotor_radius / wind_speed)
-        if power_setpoint > 0:
-            desiredcp = power_setpoint * 1000 / (0.5 * self.rho * self.rotor_area * wind_speed**3)
-            optpitch = minimize_scalar(
-                lambda p: abs(float(self.perffuncs["Cp"]([tsr, float(p)])) - desiredcp),
-                method="bounded",
-                bounds=(0, 1.57),
+        desiredcp = 0
+        if power_setpoint < self.rated_power / 1000:
+            desiredcp = (
+                power_setpoint
+                * 1000
+                / self.gen_efficiency
+                / (0.5 * self.rho * self.rotor_area * wind_speed**3)
             )
-            pitch = optpitch.x
-
+            pitch = self.perffuncs["pitch"]([desiredcp, tsr])[0]
         pitch = np.clip(
             pitch,
             self.prev_pitch - self.max_pitch_rate * self.dt,
@@ -964,34 +988,136 @@ class Turbine1dofModel:
             * self.rotor_area
             * self.rotor_radius
             * wind_speed**2
-            * self.perffuncs["Cq"]([tsr, pitch])
+            * self.perffuncs["Cq"]([tsr, pitch])[0]
         )
 
-        power = gentq * omega * self.turbine_dict["dof1_model"]["gearbox_ratio"]
+        power = gentq * omega * self.gearbox_ratio * self.gen_efficiency
 
         self.prev_omega = omega
         self.prev_aerotq = aerotq
         self.prev_gentq = gentq
         self.prev_pitch = pitch
         self.prev_omegaf = omegaf
-        self.prev_power = power[0] / 1000.0
+        self.prev_power = power / 1000.0
 
         return self.prev_power
 
-    def simplecontroller(self, wind_speed, omegaf):
-        """Simple controller for pitch and generator torque.
+    def simplecontroller(self, omegaf):
+        """Simple controller to command pitch and generator torque.
 
-        Implements a basic Region 2 controller that sets pitch to 0 and
-        calculates generator torque based on filtered rotor speed.
+        Region-2 controller:
+        - sets blade pitch to 0
+        - sets generator torque using a K$\\omega^2$ controller
+        region-3 controller:
+        - sets blade pitch based on a PI controller
+        - sets generator torque to be inversly proportional to rotor speed.
 
         Args:
-            wind_speed (float): Current wind speed in m/s.
             omegaf (float): Filtered rotor speed in rad/s.
 
         Returns:
             tuple: (pitch_angle, generator_torque) where pitch is in radians
                 and generator torque is in N⋅m.
         """
-        pitch = 0.0
-        gentorque = self.turbine_dict["dof1_model"]["controller"]["r2_k_torque"] * omegaf**2
+        omegaf_gen = omegaf * self.gearbox_ratio
+
+        if omegaf >= self.rated_rotor_speed:
+            # Region-3
+            gentorque = self.rated_torque * self.rated_rotor_speed / omegaf
+            self.omegaferror_integrated += omegaf - self.rated_rotor_speed
+            pitch_i = (
+                self.turbine_dict["dof1_model"]["controller"]["ki_pitch"]
+                * self.dt
+                * self.omegaferror_integrated
+            )
+            pitch_p = self.turbine_dict["dof1_model"]["controller"]["kp_pitch"] * (
+                omegaf - self.rated_rotor_speed
+            )
+            pitch = pitch_i + pitch_p
+        else:
+            # Region-2
+            gentorque = self.turbine_dict["dof1_model"]["controller"]["r2_k_torque"] * omegaf_gen**2
+            pitch = 0.0
+            self.omegaferror_integrated = 0.0
         return pitch, gentorque
+
+    def load_perffile(self, perffile):
+        """Load and parse a wind turbine performance file.
+
+        This function reads a performance file containing wind turbine coefficient data
+        including power coefficients (Cp), thrust coefficients (Ct), and torque coefficients (Cq)
+        as functions of tip speed ratio (TSR) and blade pitch angle.
+        It also outputs a function to calculate optimal pitch for a given TSR and reqired Cp
+        for faster calculation of derated operations.
+        The data is converted into RegularGridInterpolator objects for efficient interpolation
+        during simulation.
+
+        Args:
+            perffile (str): Path to the performance file containing turbine coefficient data.
+
+        Returns:
+            dict: A dictionary containing RegularGridInterpolator objects for 'Cp', 'Ct', and 'Cq'
+                coefficients, and optimal pitch for derated cases keyed by coefficient name.
+        """
+        perffuncs = {}
+
+        with open(perffile) as pfile:
+            for line in pfile:
+                # Read Blade Pitch Angles (degrees)
+                if "Pitch angle" in line:
+                    pitch_initial = np.array([float(x) for x in pfile.readline().strip().split()])
+                    pitch_initial_rad = pitch_initial / RAD2DEG
+
+                # Read Tip Speed Ratios (rad)
+                if "TSR" in line:
+                    TSR_initial = np.array([float(x) for x in pfile.readline().strip().split()])
+
+                # Read Power Coefficients
+                if "Power" in line:
+                    pfile.readline()
+                    Cp = np.empty((len(TSR_initial), len(pitch_initial)))
+                    for tsr_i in range(len(TSR_initial)):
+                        Cp[tsr_i] = np.array([float(x) for x in pfile.readline().strip().split()])
+                    perffuncs["Cp"] = RegularGridInterpolator(
+                        (TSR_initial, pitch_initial_rad), Cp, bounds_error=False, fill_value=None
+                    )
+
+                    # Obtain a lookup table to calculate optimal pitch for derated simulations
+                    cpgrid = np.linspace(0, 0.6, 100)
+                    optpitchdata = []
+                    for cp in cpgrid:
+                        optpitchrow = []
+                        for tsr in TSR_initial:
+                            optpitch = minimize_scalar(
+                                lambda p: abs(float(perffuncs["Cp"]([tsr, float(p)])) - cp),
+                                method="bounded",
+                                bounds=(0, 1.57),
+                            )
+                            pitch = optpitch.x
+                            optpitchrow.append(pitch)
+                        optpitchdata.append(optpitchrow)
+                    perffuncs["pitch"] = RegularGridInterpolator(
+                        (cpgrid, TSR_initial), optpitchdata, bounds_error=False, fill_value=None
+                    )
+
+                # Read Thrust Coefficients
+                if "Thrust" in line:
+                    pfile.readline()
+                    Ct = np.empty((len(TSR_initial), len(pitch_initial)))
+                    for tsr_i in range(len(TSR_initial)):
+                        Ct[tsr_i] = np.array([float(x) for x in pfile.readline().strip().split()])
+                    perffuncs["Ct"] = RegularGridInterpolator(
+                        (TSR_initial, pitch_initial_rad), Ct, bounds_error=False, fill_value=None
+                    )
+
+                # Read Torque Coefficients
+                if "Torque" in line:
+                    pfile.readline()
+                    Cq = np.empty((len(TSR_initial), len(pitch_initial)))
+                    for tsr_i in range(len(TSR_initial)):
+                        Cq[tsr_i] = np.array([float(x) for x in pfile.readline().strip().split()])
+                    perffuncs["Cq"] = RegularGridInterpolator(
+                        (TSR_initial, pitch_initial_rad), Cq, bounds_error=False, fill_value=None
+                    )
+
+        return perffuncs
