@@ -8,10 +8,7 @@ Like other subclasses of ThermalComponentBase, it inherits the main control func
 and adds defaults for many variables based on [1], [2], [3], [4], [5] and [6].
 
 Note: All efficiency values are HHV (Higher Heating Value) net plant efficiencies.
-The default efficiency table is based on the SC1A curve from Exhibit ES-4 of [5].
-
-Note: This class is based on aeroderivative combined cycle gas turbines,
-which are commonly used for flexible power generation.
+The default efficiency table is based on the CC1A-F curve from Exhibit ES-4 of [5].
 
 References:
 
@@ -84,9 +81,9 @@ class CombinedCycleGasTurbine(ThermalComponentBase):
                     efficiency arrays (both as fractions 0-1). Efficiency values must
                     be HHV net plant efficiencies. Default values are approximate
                     readings from the CC1A-F curve in Exhibit ES-4 of [5]:
-                    power_fraction = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.7, 0.65, 
+                    power_fraction = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.7, 0.65,
                                         0.6, 0.55, 0.50, 0.4],
-                    efficiency = [0.53, 0.515, 0.52, 0.52, 0.52, 0.52, 0.52, 0.515, 
+                    efficiency = [0.53, 0.515, 0.52, 0.52, 0.52, 0.52, 0.52, 0.515,
                                         0.505, 0.5, 0.49, 0.47].
                     F-class are typically smaller, older, less efficient: 250 MW
                     H-class are typically larger, newer, more efficient: 500 MW
@@ -127,10 +124,34 @@ class CombinedCycleGasTurbine(ThermalComponentBase):
         # the CC1A-F curve in Exhibit ES-4 of [5]
         if "efficiency_table" not in h_dict[self.component_name]:
             h_dict[self.component_name]["efficiency_table"] = {
-                    "power_fraction": [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.7, 0.65, 
-                                        0.6, 0.55, 0.50, 0.4],
-                    "efficiency": [0.53, 0.515, 0.52, 0.52, 0.52, 0.52, 0.52, 0.515, 
-                                        0.505, 0.5, 0.49, 0.47],
+                "power_fraction": [
+                    1.0,
+                    0.95,
+                    0.90,
+                    0.85,
+                    0.80,
+                    0.75,
+                    0.7,
+                    0.65,
+                    0.6,
+                    0.55,
+                    0.50,
+                    0.4,
+                ],
+                "efficiency": [
+                    0.53,
+                    0.515,
+                    0.52,
+                    0.52,
+                    0.52,
+                    0.52,
+                    0.52,
+                    0.515,
+                    0.505,
+                    0.5,
+                    0.49,
+                    0.47,
+                ],
             }
 
         # Call the base class init
