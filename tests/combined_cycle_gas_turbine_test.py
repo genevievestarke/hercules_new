@@ -1,6 +1,8 @@
 import copy
 
+import numpy as np
 from hercules.plant_components.combined_cycle_gas_turbine import CombinedCycleGasTurbine
+from hercules.utilities import hercules_float_type
 
 from .test_inputs.h_dict import (
     h_dict_combined_cycle_gas_turbine,
@@ -93,7 +95,6 @@ def test_default_efficiency_table():
     Default values are approximate readings from the CC1A-F curve in
     Exhibit ES-4 of [5].
     """
-    import numpy as np
 
     h_dict = copy.deepcopy(h_dict_combined_cycle_gas_turbine)
     del h_dict["combined_cycle_gas_turbine"]["efficiency_table"]
@@ -102,8 +103,10 @@ def test_default_efficiency_table():
     np.testing.assert_array_equal(
         ccgt.efficiency_power_fraction,
         np.array([0.4, 0.50, 0.55, 0.6, 0.65, 0.70, 0.75, 0.80, 0.85, 0.9, 0.95, 1.0]),
+        dtype=hercules_float_type,
     )
     np.testing.assert_array_equal(
         ccgt.efficiency_values,
         np.array([0.47, 0.49, 0.5, 0.505, 0.515, 0.52, 0.52, 0.52, 0.52, 0.52, 0.515, 0.53]),
+        dtype=hercules_float_type,
     )
