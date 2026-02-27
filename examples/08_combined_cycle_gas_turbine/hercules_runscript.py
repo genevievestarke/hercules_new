@@ -55,8 +55,8 @@ class ControllerCCGT:
         elif current_time < 60 * 60:  # 60 minutes in seconds
             # Between 10 and 60 minutes: shut down
             power_setpoint = 0.0
-        elif current_time < 240 * 60:  # 240 minutes in seconds
-            # Between 60 and 240 minutes: signal to run at full capacity
+        elif current_time < 260 * 60:  # 260 minutes in seconds
+            # Between 60 and 260 minutes: signal to run at full capacity
             power_setpoint = self.rated_capacity
         elif current_time < 360 * 60:  # 360 minutes in seconds
             # Between 240 and 360 minutes: reduce power to 50% of rated capacity

@@ -17,18 +17,16 @@ df = ho.df
 # Get the h_dict from metadata
 h_dict = ho.h_dict
 
-# Convert time to minutes for easier reading
-time_minutes = df["time"] / 60
+# Convert time to hours for easier reading
+time_hours = df["time"] / 60 / 60
 
 fig, axarr = plt.subplots(4, 1, sharex=True, figsize=(10, 10))
 
 # Plot the power output and setpoint
 ax = axarr[0]
+ax.plot(time_hours, df["combined_cycle_gas_turbine.power"] / 1000, label="Power Output", color="b")
 ax.plot(
-    time_minutes, df["combined_cycle_gas_turbine.power"] / 1000, label="Power Output", color="b"
-)
-ax.plot(
-    time_minutes,
+    time_hours,
     df["combined_cycle_gas_turbine.power_setpoint"] / 1000,
     label="Power Setpoint",
     color="r",
@@ -55,7 +53,7 @@ ax.grid(True)
 
 # Plot the state
 ax = axarr[1]
-ax.plot(time_minutes, df["combined_cycle_gas_turbine.state"], label="State", color="k")
+ax.plot(time_hours, df["combined_cycle_gas_turbine.state"], label="State", color="k")
 ax.set_ylabel("State")
 ax.set_yticks([0, 1, 2, 3, 4, 5])
 ax.set_yticklabels(["Off", "Hot Starting", "Warm Starting", "Cold Starting", "On", "Stopping"])
@@ -67,7 +65,7 @@ ax.grid(True)
 # Plot the efficiency
 ax = axarr[2]
 ax.plot(
-    time_minutes,
+    time_hours,
     df["combined_cycle_gas_turbine.efficiency"] * 100,
     label="Efficiency",
     color="g",
@@ -79,7 +77,7 @@ ax.grid(True)
 # Plot the fuel consumption
 ax = axarr[3]
 ax.plot(
-    time_minutes,
+    time_hours,
     df["combined_cycle_gas_turbine.fuel_volume_rate"],
     label="Fuel Volume Rate",
     color="orange",
