@@ -113,6 +113,8 @@ class ThermalComponentBase(ComponentBase):
         # Call the base class init
         super().__init__(h_dict, self.component_name)
 
+        self.time_counter = 0.0
+
         # Extract parameters from the h_dict
         component_dict = h_dict[self.component_name]
         self.rated_capacity = component_dict["rated_capacity"]  # kW
@@ -346,6 +348,15 @@ class ThermalComponentBase(ComponentBase):
         h_dict[self.component_name]["fuel_volume_rate"] = self.fuel_volume_rate
         h_dict[self.component_name]["fuel_mass_rate"] = self.fuel_mass_rate
 
+        self.time_counter += self.dt
+        print("##############################################################")
+        print("Time step:", self.time_counter)
+        print(f"Power setpoint: {self.power_output:.2f} kW")
+        print("Min up time:", self.min_up_time)
+        print("Min down time:", self.min_down_time)
+        print("Time in state:", self.time_in_state)
+        print("Current state:", self.STATES(self.state).name)
+
         return h_dict
 
     def _control(self, power_setpoint):
@@ -511,6 +522,7 @@ class ThermalComponentBase(ComponentBase):
         elif self.state == self.STATES.ON:
             # Check if we can shut down (min_up_time satisfied)
             can_shutdown = self.time_in_state >= self.min_up_time
+            print("Can shutdown:", can_shutdown)
 
             if power_setpoint <= 0 and can_shutdown:
                 # Transition to shutdown sequence

@@ -102,11 +102,15 @@ def test_default_efficiency_table():
     # Default HHV net plant efficiency from CC1A-F curve in Exhibit ES-4 of [5]
     np.testing.assert_array_equal(
         ccgt.efficiency_power_fraction,
-        np.array([0.4, 0.50, 0.55, 0.6, 0.65, 0.70, 0.75, 0.80, 0.85, 0.9, 0.95, 1.0]),
-        dtype=hercules_float_type,
+        np.array(
+            [0.4, 0.50, 0.55, 0.6, 0.65, 0.70, 0.75, 0.80, 0.85, 0.9, 0.95, 1.0],
+            dtype=hercules_float_type,
+        ),
     )
     np.testing.assert_array_equal(
         ccgt.efficiency_values,
-        np.array([0.47, 0.49, 0.5, 0.505, 0.515, 0.52, 0.52, 0.52, 0.52, 0.52, 0.515, 0.53]),
-        dtype=hercules_float_type,
+        np.array(
+            [0.47, 0.49, 0.5, 0.505, 0.515, 0.52, 0.52, 0.52, 0.52, 0.52, 0.515, 0.53],
+            dtype=hercules_float_type,
+        ),
     )
