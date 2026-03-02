@@ -35,14 +35,22 @@ ax.axhline(
     h_dict_ocgt["open_cycle_gas_turbine"]["rated_capacity"] / 1000,
     color="gray",
     linestyle=":",
-    label="Rated capacity, min. stable load",
+    label="Rated capacity (both)",
 )
 ax.axhline(
     h_dict_ocgt["open_cycle_gas_turbine"]["min_stable_load_fraction"]
     * h_dict_ocgt["open_cycle_gas_turbine"]["rated_capacity"]
     / 1000,
-    color="gray",
+    color=col_ocgt,
     linestyle=":",
+    label="OCGT min. stable load",
+)
+ax.axhline(
+    h_dict_ccgt["combined_cycle_gas_turbine"]["min_stable_load_fraction"]
+    * h_dict_ccgt["combined_cycle_gas_turbine"]["rated_capacity"] / 1000,
+    color=col_ccgt,
+    linestyle=":",
+    label="CCGT min. stable load",
 )
 ax.plot(
     time_hours_ocgt,
@@ -65,7 +73,7 @@ ax.plot(
     linestyle="-.",
 )
 ax.set_ylabel("Power [MW]")
-ax.legend()
+ax.legend(loc="upper right")
 ax.grid(True)
 
 # Plot the state
@@ -83,7 +91,7 @@ ax.plot(
 ax.set_ylabel("State")
 ax.set_yticks([0, 1, 2, 3, 4, 5])
 ax.set_yticklabels(["Off", "Hot Starting", "Warm Starting", "Cold Starting", "On", "Stopping"])
-ax.legend()
+ax.legend(loc="upper right")
 ax.grid(True)
 
 # Plot the efficiency
@@ -101,7 +109,7 @@ ax.plot(
     color=col_ccgt,
     linestyle="-.",
 )
-ax.legend()
+ax.legend(loc="upper right")
 ax.set_ylim(0, 100)
 ax.set_ylabel("Efficiency [%]")
 ax.set_title("Thermal Efficiency")
@@ -122,12 +130,13 @@ ax.plot(
     color=col_ccgt,
     linestyle="-.",
 )
-ax.legend()
+ax.legend(loc="upper right")
 ax.set_ylabel("Fuel [m³/s]")
 ax.set_title("Fuel Volume Rate")
 ax.grid(True)
 
 ax.set_xlabel("Time [hours]")
+ax.set_xlim(0, 10)
 
 plt.tight_layout()
 plt.show()
