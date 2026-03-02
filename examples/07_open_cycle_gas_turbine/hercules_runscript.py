@@ -1,18 +1,17 @@
 """Example 07: Open Cycle Gas Turbine (OCGT) simulation.
 
-This example demonstrates a simple open cycle gas turbine (OCGT) that:
+This example demonstrates a simple open cycle gas turbine (OCGT) and a combined
+    cycle turbine (CCGT) in a simulation that compares their performance using the
+    following schedule of commands:
 - Starts on at rated capacity (100 MW)
 - At 10 minutes, receives a shutdown command and begins ramping down
-- At ~20 minutes, reaches 0 MW and transitions to off
-- At 40 minutes, receives a turn-on command with a setpoint of 100% of rated capacity
-- At ~80 minutes, 1 hour down-time minimum is reached and the turbine begins hot starting
-- At ~87 minutes, hot start completes, continues ramping up to 100% of rated capacity
-- At 120 minutes, receives a command to reduce power to 50% of rated capacity
-- At 180 minutes, receives a command to reduce power to 10% of rated capacity
+- At 60 minutes, receives a turn-on command with a setpoint of 100% of rated capacity
+- At 260 minutes, receives a command to reduce power to 50% of rated capacity
+- At 360 minutes, receives a command to reduce power to 10% of rated capacity
         (note this is below the minimum stable load)
-- At 210 minutes, receives a command to increase power to 100% of rated capacity
-- At 240 minutes (4 hours), receives a shutdown command
-- Simulation runs for 6 hours total with 1 minute time steps
+- At 480 minutes, receives a command to increase power to 100% of rated capacity
+- At 540 minutes (9 hours), receives a shutdown command
+- Simulation runs for 10 hours total with 1 minute time steps
 """
 
 from hercules.hercules_model import HerculesModel
@@ -33,7 +32,7 @@ class OpenLoopController:
         Args:
             h_dict (dict): The hercules input dictionary.
 
-        """ 
+        """
         # TODO: Improve this once component-type reconfigured
         if "open_cycle_gas_turbine" in h_dict:
             self.rated_capacity = h_dict["open_cycle_gas_turbine"]["rated_capacity"]
@@ -65,7 +64,7 @@ class OpenLoopController:
             # Between 60 and 260 minutes: signal to run at full capacity
             power_setpoint = self.rated_capacity
         elif current_time < 360 * 60:  # 360 minutes in seconds
-            # Between 240 and 360 minutes: reduce power to 50% of rated capacity
+            # Between 260 and 360 minutes: reduce power to 50% of rated capacity
             power_setpoint = 0.5 * self.rated_capacity
         elif current_time < 480 * 60:  # 480 minutes in seconds
             # Between 360 and 480 minutes: reduce power to 10% of rated capacity
