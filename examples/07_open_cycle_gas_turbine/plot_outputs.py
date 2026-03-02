@@ -39,7 +39,8 @@ ax.axhline(
 )
 ax.axhline(
     h_dict_ocgt["open_cycle_gas_turbine"]["min_stable_load_fraction"]
-    * h_dict_ocgt["open_cycle_gas_turbine"]["rated_capacity"] / 1000,
+    * h_dict_ocgt["open_cycle_gas_turbine"]["rated_capacity"]
+    / 1000,
     color="gray",
     linestyle=":",
 )
@@ -61,6 +62,7 @@ ax.plot(
     df_ccgt["combined_cycle_gas_turbine.power"] / 1000,
     label="CCGT output",
     color=col_ccgt,
+    linestyle="-.",
 )
 ax.set_ylabel("Power [MW]")
 ax.legend()
@@ -69,16 +71,14 @@ ax.grid(True)
 # Plot the state
 ax = axarr[1]
 ax.plot(
-    time_hours_ocgt,
-    df_ocgt["open_cycle_gas_turbine.state"],
-    label="OCGT State",
-    color=col_ocgt
+    time_hours_ocgt, df_ocgt["open_cycle_gas_turbine.state"], label="OCGT State", color=col_ocgt
 )
 ax.plot(
     time_hours_ccgt,
     df_ccgt["combined_cycle_gas_turbine.state"],
     label="CCGT State",
     color=col_ccgt,
+    linestyle="-.",
 )
 ax.set_ylabel("State")
 ax.set_yticks([0, 1, 2, 3, 4, 5])
@@ -99,6 +99,7 @@ ax.plot(
     df_ccgt["combined_cycle_gas_turbine.efficiency"] * 100,
     label="CCGT Efficiency",
     color=col_ccgt,
+    linestyle="-.",
 )
 ax.legend()
 ax.set_ylim(0, 100)
@@ -119,6 +120,7 @@ ax.plot(
     df_ccgt["combined_cycle_gas_turbine.fuel_volume_rate"],
     label="CCGT Fuel Volume Rate",
     color=col_ccgt,
+    linestyle="-.",
 )
 ax.legend()
 ax.set_ylabel("Fuel [m³/s]")
