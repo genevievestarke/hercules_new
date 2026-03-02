@@ -1,4 +1,5 @@
-"""Example 07: Open Cycle Gas Turbine (OCGT) simulation.
+"""
+Example 07: Open Cycle Gas Turbine (OCGT) simulation.
 
 This example demonstrates a simple open cycle gas turbine (OCGT) and a combined
     cycle turbine (CCGT) in a simulation that compares their performance using the
