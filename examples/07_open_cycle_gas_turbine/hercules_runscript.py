@@ -33,7 +33,7 @@ class OpenLoopController:
         Args:
             h_dict (dict): The hercules input dictionary.
 
-        """ 
+        """
         # TODO: Improve this once component-type reconfigured
         if "open_cycle_gas_turbine" in h_dict:
             self.rated_capacity = h_dict["open_cycle_gas_turbine"]["rated_capacity"]

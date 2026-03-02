@@ -47,7 +47,8 @@ ax.axhline(
 )
 ax.axhline(
     h_dict_ccgt["combined_cycle_gas_turbine"]["min_stable_load_fraction"]
-    * h_dict_ccgt["combined_cycle_gas_turbine"]["rated_capacity"] / 1000,
+    * h_dict_ccgt["combined_cycle_gas_turbine"]["rated_capacity"]
+    / 1000,
     color=col_ccgt,
     linestyle=":",
     label="CCGT min. stable load",
