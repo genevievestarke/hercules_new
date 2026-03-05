@@ -66,7 +66,7 @@ $$
 Where:
 - `power` is in W (converted from kW internally)
 - `efficiency` is the HHV net efficiency interpolated from the efficiency table
-- `hhv` is the higher heating value in J/m³ (default 39.05 MJ/m³ for bituminous coal [4])
+- `hhv` is the higher heating value in J/m³
 - Result is fuel volume rate in m³/s
 
 The fuel mass rate is then computed from the volume rate using the fuel density:
@@ -77,7 +77,7 @@ $$
 
 Where:
 - `fuel_volume_rate` is in m³/s
-- `fuel_density` is in kg/m³ (default 1000 kg/m³ for bituminous coal)
+- `fuel_density` is in kg/m³
 - Result is fuel mass rate in kg/s
 
 ## YAML Configuration

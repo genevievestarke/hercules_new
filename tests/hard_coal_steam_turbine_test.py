@@ -21,11 +21,11 @@ def test_default_inputs():
     """Test that HardCoalSteamTurbine uses default inputs when not provided."""
     h_dict = copy.deepcopy(h_dict_hard_coal_steam_turbine)
 
-    # Test that the ramp_rate_fraction is 0.04 (from test fixture)
+    # Test that the ramp_rate_fraction input is correct from input dict
     hcst = HardCoalSteamTurbine(h_dict, "hard_coal_steam_turbine")
     assert hcst.ramp_rate_fraction == 0.04
 
-    # Test that the run_up_rate_fraction is 0.02 (from test fixture)
+    # Test that the run_up_rate_fraction input is correct from input dict
     assert hcst.run_up_rate_fraction == 0.02
 
     # Test that if the run_up_rate_fraction is not provided,
@@ -77,7 +77,6 @@ def test_default_hhv():
     h_dict = copy.deepcopy(h_dict_hard_coal_steam_turbine)
     del h_dict["hard_coal_steam_turbine"]["hhv"]
     hcst = HardCoalSteamTurbine(h_dict, "hard_coal_steam_turbine")
-    # Default HHV for coal (Bituminous) (29310 MJ/m³) from [4]
     assert hcst.hhv == 29310000000
 
 
@@ -87,7 +86,6 @@ def test_default_fuel_density():
     if "fuel_density" in h_dict["hard_coal_steam_turbine"]:
         del h_dict["hard_coal_steam_turbine"]["fuel_density"]
     hcst = HardCoalSteamTurbine(h_dict, "hard_coal_steam_turbine")
-    # Default fuel density for coal (Bituminous) is 1000 kg/m³
     assert hcst.fuel_density == 1000.0
 
 
@@ -99,7 +97,6 @@ def test_default_efficiency_table():
     h_dict = copy.deepcopy(h_dict_hard_coal_steam_turbine)
     del h_dict["hard_coal_steam_turbine"]["efficiency_table"]
     hcst = HardCoalSteamTurbine(h_dict, "hard_coal_steam_turbine")
-    # Default HHV net plant efficiency table based on [2]:
     np.testing.assert_array_equal(
         hcst.efficiency_power_fraction,
         np.array([0.3, 0.5, 1.0], dtype=hercules_float_type),

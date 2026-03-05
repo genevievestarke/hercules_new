@@ -77,7 +77,7 @@ class HardCoalSteamTurbine(ThermalComponentBase):
             component_name (str): Unique name for this instance (the YAML top-level key).
         """
 
-        # Apply fixed default parameters based on [1], [2] and [3]
+        # Apply fixed default parameters based on references
         # back into the h_dict if they are not provided
         if "min_stable_load_fraction" not in h_dict[component_name]:
             h_dict[component_name]["min_stable_load_fraction"] = 0.30
@@ -100,11 +100,11 @@ class HardCoalSteamTurbine(ThermalComponentBase):
                 "ramp_rate_fraction"
             ]
 
-        # Default HHV for coal (Bituminous) (29310 MJ/m³) from [4]
+        # Default HHV for coal (Bituminous)
         if "hhv" not in h_dict[component_name]:
             h_dict[component_name]["hhv"] = 29310000000  # J/m³ (29310 MJ/m³)
 
-        # Default fuel density for coal (Bituminous) (1000 kg/m³)
+        # Default fuel density for coal (Bituminous)
         if "fuel_density" not in h_dict[component_name]:
             h_dict[component_name]["fuel_density"] = 1000.0  # kg/m³
 

@@ -28,19 +28,15 @@ hard_coal_steam_turbine:
   cold_startup_time: 27000.0  # 7.5 hours
   min_up_time: 172800  # 48 hours
   min_down_time: 172800  # 48 hour
-  # Natural gas properties from [6] Staffell, "The Energy and Fuel Data Sheet", 2011
-  # HHV: 39.05 MJ/m³, Density: 0.768 kg/m³
-  # hhv: 39050000  # J/m³ for natural gas (39.05 MJ/m³) [6]
-  # fuel_density: 0.768  # kg/m³ for natural gas [6]
-  # efficiency_table:
-  power_fraction:
-    - 1.0
-    - 0.50
-    - 0.30
-  efficiency:  # HHV net plant efficiency, fractions (0-1)
-    - 0.35
-    - 0.32
-    - 0.32
+  efficiency_table:
+    power_fraction:
+      - 1.0
+      - 0.50
+      - 0.30
+    efficiency:  # HHV net plant efficiency, fractions (0-1)
+      - 0.35
+      - 0.32
+      - 0.32
   log_channels:
     - power
     - fuel_volume_rate
@@ -49,6 +45,6 @@ hard_coal_steam_turbine:
     - efficiency
     - power_setpoint
   initial_conditions:
-    power: 500000  # Start ON at rated capacity (500 MW)
+    power: 500000  # Start ON at rated capacity
 
 controller:
