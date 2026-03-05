@@ -3,6 +3,7 @@ import numpy as np
 from hercules.plant_components.battery_lithium_ion import BatteryLithiumIon
 from hercules.plant_components.battery_simple import BatterySimple
 from hercules.plant_components.electrolyzer_plant import ElectrolyzerPlant
+from hercules.plant_components.hard_coal_steam_turbine import HardCoalSteamTurbine
 from hercules.plant_components.open_cycle_gas_turbine import OpenCycleGasTurbine
 from hercules.plant_components.solar_pysam_pvwatts import SolarPySAMPVWatts
 from hercules.plant_components.wind_farm import WindFarm
@@ -18,6 +19,7 @@ COMPONENT_REGISTRY = {
     "BatteryLithiumIon": BatteryLithiumIon,
     "ElectrolyzerPlant": ElectrolyzerPlant,
     "OpenCycleGasTurbine": OpenCycleGasTurbine,
+    "HardCoalSteamTurbine": HardCoalSteamTurbine,
 }
 
 # Derived from registry keys for validation in utilities.py
