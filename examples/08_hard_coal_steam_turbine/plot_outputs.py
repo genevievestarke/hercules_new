@@ -21,6 +21,8 @@ h_dict = ho.h_dict
 # Convert time to hours for easier reading
 time_hours = df["time"] / 60 / 60
 
+print("TONNES OF COAL USED:", df[component_name + ".fuel_volume_rate"].sum() * h_dict["dt"])
+
 fig, axarr = plt.subplots(4, 1, sharex=True, figsize=(10, 10))
 
 # Plot the power output and setpoint
@@ -87,7 +89,7 @@ ax.set_ylabel("Fuel [m³/s]")
 ax.set_title("Fuel Volume Rate")
 ax.grid(True)
 
-ax.set_xlabel("Time [minutes]")
+ax.set_xlabel("Time [hours]")
 
 plt.tight_layout()
 plt.show()
