@@ -72,7 +72,7 @@ class HardCoalSteamTurbine(ThermalComponentBase):
                     efficiency arrays (both as fractions 0-1). Efficiency values must
                     be HHV net plant efficiencies. Default values are taken from [2,3]:
                     power_fraction = [1.0, 0.5, 0.3],
-                    efficiency = [0.35, 0.32, 0.32].
+                    efficiency = [0.35, 0.32, 0.30].
 
             component_name (str): Unique name for this instance (the YAML top-level key).
         """
@@ -112,7 +112,7 @@ class HardCoalSteamTurbine(ThermalComponentBase):
         if "efficiency_table" not in h_dict[component_name]:
             h_dict[component_name]["efficiency_table"] = {
                 "power_fraction": [1.0, 0.5, 0.3],
-                "efficiency": [0.35, 0.32, 0.32],
+                "efficiency": [0.35, 0.32, 0.30],
             }
 
         # Call the base class init (sets self.component_name and self.component_type)

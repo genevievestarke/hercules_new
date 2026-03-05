@@ -10,7 +10,7 @@ description: Hard Coal Steam Turbine (HCST) Example
 
 dt: 60.0  # 1 minute time step
 starttime_utc: "2020-01-01T00:00:00Z"  # Midnight Jan 1, 2020 UTC
-endtime_utc: "2020-01-10T00:00:00Z"  # 6 hours later
+endtime_utc: "2020-01-10T00:00:00Z"  # 10 days later
 verbose: False
 log_every_n: 1
 
@@ -26,8 +26,8 @@ hard_coal_steam_turbine:
   hot_startup_time: 27000.0  # 7.5 hours
   warm_startup_time: 27000.0  # 7.5 hours
   cold_startup_time: 27000.0  # 7.5 hours
-  min_up_time: 172800  # 24 hours
-  min_down_time: 172800  # 24 hour
+  min_up_time: 172800  # 48 hours
+  min_down_time: 172800  # 48 hour
   # Natural gas properties from [6] Staffell, "The Energy and Fuel Data Sheet", 2011
   # HHV: 39.05 MJ/m³, Density: 0.768 kg/m³
   # hhv: 39050000  # J/m³ for natural gas (39.05 MJ/m³) [6]
