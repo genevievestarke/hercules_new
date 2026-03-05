@@ -36,11 +36,15 @@ class ControllerHCST:
         """
         self.component_name = component_name
         self.rated_capacity = h_dict[self.component_name]["rated_capacity"]
-        # Controller operates in 1-minute intervals, so base unit is an hour
-        self.controller_base_unit = 45
+
+        simulation_length = h_dict["endtime_utc"] - h_dict["starttime_utc"]
+        self.total_simulation_time = simulation_length.total_seconds()
 
     def step(self, h_dict):
         """Execute one control step.
+        This controller is scaled by the total simulation time, pulled from the h_dict
+        This preserves the relative distance between control actions, but changes the
+            simulation times that they are applied.
 
         Args:
             h_dict (dict): The hercules input dictionary.
@@ -51,28 +55,27 @@ class ControllerHCST:
         """
         current_time = h_dict["time"]
 
-        # NOTE: update doc strings to reflect base unit scaling
         # Determine power setpoint based on time
-        if current_time < 10 * self.controller_base_unit * 60:  # 10 minutes in seconds
-            # Before 10 minutes: run at full capacity
+        if current_time < 0.05 * self.total_simulation_time:
+            # First 5% of simulation time, run at full capacity
             power_setpoint = self.rated_capacity
-        elif current_time < 40 * self.controller_base_unit * 60:  # 40 minutes in seconds
-            # Between 10 and 40 minutes: shut down
+        elif current_time < 0.15 * self.total_simulation_time:
+            # Between 5% and 15% of simulation time: shut down
             power_setpoint = 0.0
-        elif current_time < 120 * self.controller_base_unit * 60:  # 120 minutes in seconds
-            # Between 40 and 120 minutes: signal to run at full capacity
+        elif current_time < 0.45 * self.total_simulation_time:
+            # Between 15% and 45% of simulation time: signal to run at full capacity
             power_setpoint = self.rated_capacity
-        elif current_time < 180 * self.controller_base_unit * 60:  # 180 minutes in seconds
-            # Between 120 and 180 minutes: reduce power to 50% of rated capacity
+        elif current_time < 0.65 * self.total_simulation_time:
+            # Between 45% and 65% of simulation time: reduce power to 50% of rated capacity
             power_setpoint = 0.5 * self.rated_capacity
-        elif current_time < 210 * self.controller_base_unit * 60:  # 210 minutes in seconds
-            # Between 180 and 210 minutes: reduce power to 10% of rated capacity
+        elif current_time < 0.75 * self.total_simulation_time:
+            # Between 65% and 75% of simulation time: reduce power to 10% of rated capacity
             power_setpoint = 0.1 * self.rated_capacity
-        elif current_time < 240 * self.controller_base_unit * 60:  # 240 minutes in seconds
-            # Between 210 and 240 minutes: increase power to 100% of rated capacity
+        elif current_time < 0.9 * self.total_simulation_time:  #
+            # Between 75% and 90% of simulation time: increase power to 100% of rated capacity
             power_setpoint = self.rated_capacity
         else:
-            # After 240 minutes: shut down
+            # After 90% of simulation time: shut down
             power_setpoint = 0.0
 
         h_dict[self.component_name]["power_setpoint"] = power_setpoint
