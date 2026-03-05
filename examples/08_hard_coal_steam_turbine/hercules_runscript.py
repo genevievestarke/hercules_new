@@ -1,4 +1,4 @@
-"""Example 07: Hard Coal Steam Turbine (HCST) simulation.
+"""Example 08: Hard Coal Steam Turbine (HCST) simulation.
 
 This example demonstrates a simple hard coal steam turbine (HCST) that:
 - Starts on at rated capacity
