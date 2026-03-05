@@ -1,18 +1,18 @@
 """Example 07: Hard Coal Steam Turbine (HCST) simulation.
 
 This example demonstrates a simple hard coal steam turbine (HCST) that:
-- Starts on at rated capacity (100 MW)
-- At 10 minutes, receives a shutdown command and begins ramping down
-- At ~20 minutes, reaches 0 MW and transitions to off
-- At 40 minutes, receives a turn-on command with a setpoint of 100% of rated capacity
-- At ~80 minutes, 1 hour down-time minimum is reached and the turbine begins hot starting
-- At ~87 minutes, hot start completes, continues ramping up to 100% of rated capacity
-- At 120 minutes, receives a command to reduce power to 50% of rated capacity
-- At 180 minutes, receives a command to reduce power to 10% of rated capacity
+- Starts on at rated capacity
+- Receives a shutdown command and begins ramping down
+- Transitions to off
+- Receives a turn-on command with a setpoint of 100% of rated capacity
+- Minimum down-time requirement is reached and the turbine begins ramping up
+- Ramps up to 100% of rated capacity
+- Receives a command to reduce power to 50% of rated capacity
+- Receives a command to reduce power to 10% of rated capacity
         (note this is below the minimum stable load)
-- At 210 minutes, receives a command to increase power to 100% of rated capacity
-- At 240 minutes (4 hours), receives a shutdown command
-- Simulation runs for 6 hours total with 1 minute time steps
+- Receives a command to increase power to 100% of rated capacity
+- Receives a shutdown command
+- Simulation runs for 10 days total with 1 minute time steps
 """
 
 from hercules.hercules_model import HerculesModel
