@@ -5,6 +5,7 @@ from hercules.plant_components.battery_simple import BatterySimple
 from hercules.plant_components.electrolyzer_plant import ElectrolyzerPlant
 from hercules.plant_components.hard_coal_steam_turbine import HardCoalSteamTurbine
 from hercules.plant_components.open_cycle_gas_turbine import OpenCycleGasTurbine
+from hercules.plant_components.power_playback import PowerPlayback
 from hercules.plant_components.solar_pysam_pvwatts import SolarPySAMPVWatts
 from hercules.plant_components.wind_farm import WindFarm
 from hercules.plant_components.wind_farm_scada_power import WindFarmSCADAPower
@@ -20,6 +21,7 @@ COMPONENT_REGISTRY = {
     "ElectrolyzerPlant": ElectrolyzerPlant,
     "OpenCycleGasTurbine": OpenCycleGasTurbine,
     "HardCoalSteamTurbine": HardCoalSteamTurbine,
+    "PowerPlayback": PowerPlayback,
 }
 
 # Derived from registry keys for validation in utilities.py
