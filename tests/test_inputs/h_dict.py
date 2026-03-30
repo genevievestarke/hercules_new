@@ -34,6 +34,12 @@ wind_farm = {
     "floris_update_time_s": 30.0,  # Required parameter for FLORIS updates
 }
 
+power_playback = {
+    "component_type": "PowerPlayback",
+    "scada_filename": "tests/test_inputs/power_playback_input.csv",
+    "log_file_name": "outputs/power_playback.log",
+    "log_channels": ["power"],
+}
 
 solar_farm_pysam = {
     "component_type": "SolarPySAMPVWatts",
@@ -94,6 +100,82 @@ lib_battery = {
     "min_SOC": 0.1,  # lower boundary on battery SOC
     "log_channels": ["power", "soc", "power_setpoint"],
     "initial_conditions": {"SOC": 0.102},
+}
+
+
+thermal_component = {
+    "component_type": "ThermalComponentBase",
+    "rated_capacity": 1000,  # kW (1 MW)
+    "min_stable_load_fraction": 0.20,  # 20% minimum operating point
+    "ramp_rate_fraction": 0.50,  # 50% of rated capacity per minute
+    "run_up_rate_fraction": 0.20,  # 20% of rated capacity per minute
+    "hot_startup_time": 120.0,  # s (must be >= run_up_rate_fraction of 60s)
+    "warm_startup_time": 120.0,  # s (must be >= ramp_time of 60s)
+    "cold_startup_time": 120.0,  # s (must be >= ramp_time of 60s)
+    "min_up_time": 10.0,  # s
+    "min_down_time": 10.0,  # s
+    "log_channels": [
+        "power",
+        "state",
+        "efficiency",
+        "fuel_volume_rate",
+        "fuel_mass_rate",
+    ],
+    "initial_conditions": {"power": 1000},  # power > 0 implies ON state
+    "hhv": 40000000,  # J/m³ (made up round number for testing, NOT realistic)
+    "fuel_density": 1.0,  # kg/m³ (made up round number for testing, NOT realistic)
+    # HHV net efficiency values (made up round numbers for testing, NOT realistic)
+    "efficiency_table": {
+        "power_fraction": [1.0, 0.75, 0.50, 0.25],
+        "efficiency": [0.40, 0.38, 0.35, 0.30],
+    },
+}
+
+open_cycle_gas_turbine = {
+    "component_type": "OpenCycleGasTurbine",
+    "rated_capacity": 1000,  # kW (1 MW)
+    "min_stable_load_fraction": 0.20,  # 20% minimum operating point
+    "ramp_rate_fraction": 0.50,  # 50% of rated capacity per minute
+    "run_up_rate_fraction": 0.20,  # 20% of rated capacity per minute
+    "hot_startup_time": 120.0,  # s (must be >= run_up_rate_fraction of 60s)
+    "warm_startup_time": 120.0,  # s (must be >= ramp_time of 60s)
+    "cold_startup_time": 120.0,  # s (must be >= ramp_time of 60s)
+    "min_up_time": 10.0,  # s
+    "min_down_time": 10.0,  # s
+    "log_channels": [
+        "power",
+        "state",
+        "efficiency",
+        "fuel_volume_rate",
+        "fuel_mass_rate",
+    ],
+    "initial_conditions": {"power": 1000},  # power > 0 implies ON state
+    "hhv": 39050000,  # J/m³ (natural gas HHV from [6])
+    # HHV net plant efficiency from SC1A curve in Exhibit ES-4 of [5]
+    "efficiency_table": {
+        "power_fraction": [1.0, 0.75, 0.50, 0.25],
+        "efficiency": [0.39, 0.37, 0.325, 0.245],
+    },
+}
+
+hard_coal_steam_turbine = {
+    "component_type": "HardCoalSteamTurbine",
+    "rated_capacity": 500000,  # kW (500 MW)
+    "min_stable_load_fraction": 0.3,  # 30% minimum operating point
+    "ramp_rate_fraction": 0.04,  # 4%/min ramp rate
+    "run_up_rate_fraction": 0.02,  # 2%/min run up rate
+    "hot_startup_time": 27000.0,  # 7.5 hours
+    "warm_startup_time": 27000.0,  # 7.5 hours
+    "cold_startup_time": 27000.0,  # 7.5 hours
+    "min_up_time": 172800,  # 48 hours
+    "min_down_time": 172800,  # 48 hour
+    "hhv": 29310000000,  # J/m³ for bituminous coal (29.31 MJ/m³) [4]
+    "fuel_density": 1000,  # kg/m³ for bituminous coal
+    "initial_conditions": {"power": 1000},  # power > 0 implies ON state
+    "efficiency_table": {
+        "power_fraction": [1.0, 0.5, 0.3],
+        "efficiency": [0.35, 0.32, 0.30],
+    },
 }
 
 electrolyzer = {
@@ -181,6 +263,17 @@ h_dict_wind = {
     "time": 2.0,
     "plant": plant,
     "wind_farm": wind_farm,
+}
+
+# h_dict with power_playback only
+h_dict_power_playback = {
+    "dt": 1.0,
+    "starttime": 0.0,
+    "endtime": 10.0,
+    "starttime_utc": pd.to_datetime("2018-05-10 12:31:00", utc=True),
+    "endtime_utc": pd.to_datetime("2018-05-10 12:31:10", utc=True),
+    "verbose": False,
+    "power_playback": power_playback,
 }
 
 # h_dict with solar_farm only
@@ -295,4 +388,63 @@ h_dict_electrolyzer = {
     "time": 0.0,
     "plant": plant,
     "electrolyzer": electrolyzer,
+}
+
+
+h_dict_thermal_component = {
+    "dt": 1.0,
+    "starttime": 0.0,
+    "endtime": 10.0,
+    "starttime_utc": pd.to_datetime("2018-05-10 12:31:00", utc=True),
+    "endtime_utc": pd.to_datetime("2018-05-10 12:31:10", utc=True),
+    "verbose": False,
+    "step": 0,
+    "time": 0.0,
+    "plant": plant,
+    "thermal_component": thermal_component,
+}
+
+h_dict_open_cycle_gas_turbine = {
+    "dt": 1.0,
+    "starttime": 0.0,
+    "endtime": 10.0,
+    "starttime_utc": pd.to_datetime("2018-05-10 12:31:00", utc=True),
+    "endtime_utc": pd.to_datetime("2018-05-10 12:31:10", utc=True),
+    "verbose": False,
+    "step": 0,
+    "time": 0.0,
+    "plant": plant,
+    "open_cycle_gas_turbine": open_cycle_gas_turbine,
+}
+
+h_dict_hard_coal_steam_turbine = {
+    "dt": 1.0,
+    "starttime": 0.0,
+    "endtime": 10.0,
+    "starttime_utc": pd.to_datetime("2018-05-10 12:31:00", utc=True),
+    "endtime_utc": pd.to_datetime("2018-05-10 12:31:10", utc=True),
+    "verbose": False,
+    "step": 0,
+    "time": 0.0,
+    "plant": plant,
+    "hard_coal_steam_turbine": hard_coal_steam_turbine,
+}
+
+h_dict_thermal_plant = {
+    "dt": 1.0,
+    "starttime": 0.0,
+    "endtime": 10.0,
+    "starttime_utc": pd.to_datetime("2018-05-10 12:31:00", utc=True),
+    "endtime_utc": pd.to_datetime("2018-05-10 12:31:10", utc=True),
+    "verbose": False,
+    "step": 0,
+    "time": 0.0,
+    "plant": plant,
+    "thermal_power_plant": {
+        "component_type": "ThermalPlant",
+        "unit_names": ["OCGT1", "HARD_COAL1"],
+        "units": ["open_cycle_gas_turbine", "hard_coal_steam_turbine"],
+        "open_cycle_gas_turbine": open_cycle_gas_turbine,
+        "hard_coal_steam_turbine": hard_coal_steam_turbine,
+    },
 }
