@@ -58,12 +58,12 @@ develop = [
     "isort"
 ]
 
+[tool.setuptools.packages.find]
+include = ["hercules*"]
+
 [tool.setuptools]
 # Specifies the actual importable package name
 packages = ["hercules"]
-
-[tool.setuptools.packages.find]
-include = ["hercules*"]
 
 [coverage.run]
 # Coverage.py configuration file
