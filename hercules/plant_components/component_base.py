@@ -137,3 +137,7 @@ class ComponentBase:
             for handler in self.logger.handlers[:]:
                 handler.close()
                 self.logger.removeHandler(handler)
+
+    def step(self, h_dict):
+        """Raise error if step is called on the abstract base class."""
+        raise NotImplementedError("Components must implement the step() method")
