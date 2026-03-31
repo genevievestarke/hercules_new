@@ -9,7 +9,7 @@ description = "Hybrid plant emulation tool."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-     { name = "Genevieve Starke", email = "Genevieve.Starke@nlr.gov" },
+    { name = "Genevieve Starke", email = "Genevieve.Starke@nlr.gov" },
     { name = "Michael (Misha) Sinner", email = "Michael.Sinner@nlr.gov" },
     { name = "Paul Fleming", email = "Paul.Fleming@nlr.gov" },
     { name = "Brooke Stanislawski", email = "Brooke.Stanislawski@nlr.gov" },
@@ -60,10 +60,6 @@ develop = [
 
 [tool.setuptools.packages.find]
 include = ["hercules*"]
-
-[tool.setuptools]
-# Specifies the actual importable package name
-packages = ["hercules"]
 
 [coverage.run]
 # Coverage.py configuration file
