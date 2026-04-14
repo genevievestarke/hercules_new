@@ -35,10 +35,27 @@ solar_farm: # The name of component object 1
   lon: -105.1778
   elev: 1829
   system_capacity: 30000  # kW (30 MW)
-  tilt: 0  # degrees
-  losses: 0
+  pysam_options:
+    array_type: 3.0  # single axis backtracking
+    azimuth: 180.0
+    dc_ac_ratio: 1.0  # Force to 1.0
+    losses: 0
+    module_type: 0.0  # standard crystalline silicon (hardcoded)
+    tilt: 0  # degrees
   log_channels:
     - power
+
+# solar_farm: # The name of component object 1
+#   component_type: SolarPySAMPVWatts
+#   solar_input_filename: ../inputs/solar_input.ftr
+#   lat: 39.7442
+#   lon: -105.1778
+#   elev: 1829
+#   system_capacity: 30000  # kW (30 MW)
+#   tilt: 0  # degrees
+#   losses: 0
+#   log_channels:
+#     - power
 
   initial_conditions:
 
