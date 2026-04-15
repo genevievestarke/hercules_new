@@ -63,7 +63,7 @@ class SolarPySAMPVWatts(SolarPySAMBase):
         # Check if any PySAM options for SystemDesign are provided in the input.
         if h_dict[self.component_name].get("pysam_options", {}).get("SystemDesign") is not None:
             pysam_options_set = set(h_dict[self.component_name]["pysam_options"]["SystemDesign"])
-            print(
+            self.logger.info(
                 "PySAM model options provided in input are being used to define the PVWatts system."
             )
             common_keys = pysam_options_set.intersection(top_level_set)
