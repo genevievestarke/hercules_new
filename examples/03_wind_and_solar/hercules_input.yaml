@@ -42,7 +42,7 @@ solar_farm: # The name of component object 1
       array_type: 3.0  # single axis backtracking
       azimuth: 180.0
       dc_ac_ratio: 1.0  # Force to 1.0
-      module_type: 0.0  # standard crystalline silicon (hardcoded)
+      module_type: 0.0  # standard crystalline silicon
   log_channels:
     - power
 
