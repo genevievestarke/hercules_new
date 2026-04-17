@@ -56,8 +56,8 @@ class SolarPySAMPVWatts(SolarPySAMBase):
         hercules_defaults = {
             "array_type": 3.0,  # single axis backtracking
             "azimuth": 180.0,
-            "dc_ac_ratio": 1.0,  # Force to 1.0
-            "module_type": 0.0,  # standard crystalline silicon (hardcoded)
+            "dc_ac_ratio": 1.0,  # default is 1.0 so there are no inverter losses.
+            "module_type": 0.0,  # standard crystalline silicon
         }
 
         # Check if any PySAM options for SystemDesign are provided in the input.
@@ -75,8 +75,8 @@ class SolarPySAMPVWatts(SolarPySAMBase):
                 )
 
         model_dict = (
-            top_level_dict
-            | hercules_defaults
+            hercules_defaults
+            | top_level_dict
             | h_dict[self.component_name].get("pysam_options", {}).get("SystemDesign", {})
         )
 
